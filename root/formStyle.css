@@ -1,0 +1,178 @@
+/* This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details. */
+/* Instructor Form, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com) */
+
+/* Styles */
+body { background:black; margin:0; }
+h1 { margin-top:0; font-family:"Ubuntu Titling"; }
+h4 { margin:0.5em 0; } p { margin:0.5em 0; }
+h6 { font-size:12pt; margin:0.5em 6px; font-weight:600; }
+button {
+	height:24px; border-radius:50vh; background:#f5f5f5; color:#888; border:none;
+	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-size:16px; padding:0 8px;
+}
+button:active { background:#dcdcdc; color:#000; }
+.field {
+	width:250px; height:24px; border-radius:50vh; background:#f5f5f5; color:#888;
+	border:none; box-shadow:2px 2px 2px rgba(0,0,0,0.3); overflow:hidden; vertical-align:middle;
+	text-overflow:ellipsis; font-size:16px; margin:0; padding:0 6px; display:inline-block;
+	/*-webkit-appearance:none; -moz-appearance:none; appearance:none;*/
+}
+.fieldSub {
+	width:250px; height:24px; background:#f5f5f5; color:#888; border:none; vertical-align:middle;
+	text-overflow:ellipsis; font-size:16px; margin:0; padding:0; display:inline-block; position:relative;
+}
+.arrow {
+	width:0; height:0; display:inline-block;
+	float:right; top:38%; position:relative;
+	border-left:3px solid transparent;
+	border-right:3px solid transparent;
+	border-top:6px solid #888;
+	vertical-align:middle;
+}
+input[type=email] { color:#5299e2; }
+
+/* Content */
+#statusBg { background:grey; width:100%; height:100%; position:fixed; z-index:999; }
+#statusText {
+	position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+	color:white; font:300 50px 'Open Sans'; text-align:center;
+}
+#contentBox {
+	position:absolute; left:50%; transform:translateX(-50%);
+	font:16pt 'Open Sans'; padding:10px; box-sizing:border-box; width:80%;
+	background:rgba(240,235,230,0.8); box-shadow:0 0 10px black;
+	backdrop-filter:blur(8px);
+	-webkit-backdrop-filter:blur(8px);
+	-moz-backdrop-filter:blur(8px);
+}
+#infoBox {
+	color:white; padding:0 6px; margin-top:0; border-radius:5px;
+	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-weight:100;
+	white-space:pre-line; /* Breaks on newline in textContent. */
+	backdrop-filter:blur(8px);
+	-webkit-backdrop-filter:blur(8px);
+	-moz-backdrop-filter:blur(8px);
+}
+#bgOverlay {
+	width:100%; height:100%; position:fixed; opacity:0.7;
+	background:radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, #000 80%);
+}
+
+/* Meetup Event Preview */
+.muEvent {
+	max-width:550px; overflow:hidden; font-size:16px; border-radius:8px;
+	padding:16px; border:1px solid rgba(0,0,0,0.12); background:#fafafa;
+	box-shadow:2px 2px 2px rgba(0,0,0,0.3); color:rgba(0,0,0,0.87);
+}
+.muEvent * * { text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:100%; }
+.muEvent a, .muEvent a:visited {
+	color:inherit; display:inline-block; text-decoration:none; vertical-align:bottom;
+}
+.muEvent a:hover { color:#009AE3; }
+.muTitle { font-size:16pt; font-weight:600; white-space:pre-line; }
+.muDetail { margin-top:6px; width:70%; float:left; }
+.muVen { color:rgb(0,154,227) !important; }
+.muVen:hover { text-decoration:underline; }
+.muSub { color:rgba(0,0,0,0.54); font-size:13px; }
+.muDesc {
+	white-space:initial; margin-top:6px;
+	line-height:1.35em; display:-webkit-box;
+	-webkit-line-clamp:4; -webkit-box-orient:vertical;
+	height:84px; /* Hard-Coded fallback for non-webkit. */
+}
+.muMeta { margin-top:8px; float:right; }
+.muRSVP { margin-top:6px; font-size:13.5px; }
+.muHosts {
+	margin-top:6px; display:inline-block; width:100%;
+	color:rgba(0,0,0,0.54); font-size:13px;
+}
+
+/* Table CSS */
+table {
+	font-family:"Segoe UI","Roboto"; /*min-width:400px;*/
+	width:100%; border-collapse:collapse; background:#f5f5f5;
+	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-size:16px;
+}
+td {
+	border-top:1px solid #eee; padding:6px 3px; line-height:15px;
+	white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+td * {
+	color:#888; padding:3px 6px; border-radius:2px; display:inline-block;
+	text-overflow:ellipsis; overflow:hidden; font-size:16px;
+}
+td input { border:none; margin:0; width:95%; background:none; }
+td.name * { font-weight:bold; } td.user * { text-align:right; }
+tr:first-of-type { border-top:none; background:#eee; }
+tr:nth-child(even) td { background:#dcdcdc; }
+
+/* Dynamic Sizing */
+@media (max-width:900px) {
+	#contentBox { width:88%; }
+}
+@media (max-width:570px) {
+	table { font-size:12px; }
+	td * { font-size:12px; }
+	#contentBox { width:100%; }
+	h1 { font-size:1.5em; }
+}
+@media (max-width:350px) {
+	.muDetail { width:60%; }
+}
+@media (max-width:300px) {
+	#contentBox { zoom:0.7; }
+}
+
+/* Font Faces */
+@font-face {
+	font-family:'Roboto'; font-style:normal; font-weight:100;
+	src:local('Roboto Thin'), local('Roboto-Thin'),
+	url(resources/type/RobotoThin.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Roboto'; font-style:normal; font-weight:300;
+	src:local('Roboto Light'), local('Roboto-Light'),
+	url(resources/type/RobotoLight.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Roboto'; font-style:normal; font-weight:400;
+	src:local('Roboto'), local('Roboto-Regular'),
+	url(resources/type/RobotoReg.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Roboto'; font-style:normal; font-weight:500;
+	src:local('Roboto Medium'), local('Roboto-Medium'),
+	url(resources/type/RobotoMid.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Ubuntu Titling';
+	src:url(resources/type/UbuntuTitling-Bold.woff) format('woff');
+}
+@font-face {
+	font-family:'Khmer UI'; font-style:normal;
+	src:url(resources/type/KhmerUI.ttf) format('truetype');
+}
+@font-face {
+	font-family:'Khmer UI'; font-style:oblique;
+	src:url(resources/type/KhmerUI-Bold.ttf) format('truetype');
+}
+@font-face {
+	font-family:'Open Sans'; font-style:normal; font-weight:300;
+	src:local('Open Sans Light'), local('OpenSans-Light'),
+	url(resources/type/OpenSansLight.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Open Sans'; font-style:normal; font-weight:400;
+	src:local('Open Sans'), local('OpenSans'),
+	url(resources/type/OpenSansReg.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Open Sans'; font-style:normal; font-weight:600;
+	src:local('Open Sans Semibold'), local('OpenSans-Semibold'),
+	url(resources/type/OpenSansSemiBold.woff2) format('woff2');
+}
+@font-face {
+	font-family:'Open Sans'; font-style:normal; font-weight:700;
+	src:local('Open Sans Bold'), local('OpenSans-Bold'),
+	url(resources/type/OpenSansBold.woff2) format('woff2');
+}
