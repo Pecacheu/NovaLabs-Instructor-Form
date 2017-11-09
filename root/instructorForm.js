@@ -74,15 +74,14 @@ function doCostBreakdown() { if(!pdfSubmit) {
 	} else {
 		const r = charge*sNum, rev = utils.formatCost(r), t = r*((100-rate)/100), total = utils.formatCost(t);
 		text = "Class Revenue: "+utils.formatCost(charge)+" Charge x "+sNum+" Students = "+rev
-		+"\nTotal Reimbursement: "+rev+" - "+rate+"% Rate = "+total
-		+"\nYour Profit: "+total+" - "+utils.formatCost(mats)+" Materials = "+utils.formatCost(t-mats);
+		+"\nTotal Reimbursement: "+rev+" - "+rate+"% Rate = "+total;
 		if(r-t <= 0) {
 			text += "\nWarning: NovaLabs makes "+utils.formatCost(r-t)+"! Please ensure you've coordinated this with the board!";
 			color = 'rgba(200,160,0,0.8)';
 		} else if(t-mats <= 0) {
 			text += "\nWarning: Your class did not make any profit! You may still submit your form.";
 			color = 'rgba(200,160,0,0.8)';
-		}
+		} else text += "\nNote: Materials cost is for tax purposes only.";
 	}
 	showInfo(text, color);
 }}
