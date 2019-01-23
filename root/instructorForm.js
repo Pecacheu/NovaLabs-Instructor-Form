@@ -72,13 +72,13 @@ function doCostBreakdown() { if(!pdfSubmit) {
 		text = "Warning: "+utils.formatCost(charge)+" is too low! Minimum class fee eligible for reimbursement is $15.00!";
 		color = 'rgba(200,160,0,0.8)';
 	} else {
-		const r = charge*sNum, rev = utils.formatCost(r), t = r*((100-rate)/100), total = utils.formatCost(t);
-		text = "Class Revenue: "+utils.formatCost(charge)+" Charge x "+sNum+" Students = "+rev
-		+"\nTotal Reimbursement: "+rev+" - "+rate+"% Rate = "+total;
+		const r = charge*sNum, p = utils.formatCost(r-mats), t = (r-mats)*((100-rate)/100)+mats;
+		text = "Class Profit: "+utils.formatCost(charge)+" Charge x "+sNum+" Students - "+utils.formatCost(mats)+" Materials = "+p
+		+"\nTotal Reimbursement: "+p+" - "+rate+"% Rate + Materials = "+utils.formatCost(t);
 		if(r-t <= 0) {
 			text += "\nWarning: NovaLabs makes "+utils.formatCost(r-t)+"! Please ensure you've coordinated this with the board!";
 			color = 'rgba(200,160,0,0.8)';
-		} else if(t-mats <= 0) {
+		} else if(mats >= t) {
 			text += "\nWarning: Your class did not make any profit! You may still submit your form.";
 			color = 'rgba(200,160,0,0.8)';
 		} else text += "\nNote: Materials cost is for tax purposes only.";
@@ -99,17 +99,49 @@ function initLayout() {
 		}
 	}
 	//Update meetup event matches on class date change:
-	let mSearch = false; fDate.oninput = fTitle.oninput = function() {
-		if(mSearch) return; mSearch = true;
-		findMeetup(fTitle.value, utils.fromDateTimeBox(fDate).getTime(), function(event, accuracy, err) {
-			const evBox = showMeetup(event, accuracy, err);
-			if(muMatch.firstChild) muMatch.firstChild.replaceWith(evBox); else muMatch.appendChild(evBox);
-			muHeader.hidden = muReject.hidden = false; mSearch = false;
-		});
+	let mSearch, nos; fDate.oninput = fTitle.oninput = function() {
+		if(mSearch) return; mSearch = true; const id = Number(fTitle.value);
+		if(Number.isInteger(id) && id > 0) getMeetup(fTitle.value, muFound);
+		else if(!nos) findMeetup(fTitle.value, utils.fromDateTimeBox(fDate).getTime(), muFound);
+	}
+	function muFound(event, accuracy, err) {
+		const evBox = showMeetup(event, accuracy, err);
+		if(muMatch.firstChild) muMatch.firstChild.replaceWith(evBox); else muMatch.appendChild(evBox);
+		if(accuracy == '100%') {
+			fDate.value = utils.toDateTimeBox(new Date(EventMatch.dRaw));
+			if(Number(fTitle.value) > 0) {
+				let en = EventMatch.name;//, ei = en.indexOf(':');
+				//if(ei > 0 && ei < 4) en = en.substr(ei+1).trim();
+				fTitle.value = en; nos = true;
+			}
+		}
+		muHeader.hidden = muReject.hidden = muApply.hidden = false; mSearch = false;
 	}
 	muReject.onclick = function() {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
-		muHeader.hidden = muReject.hidden = true; EventMatch = null;
+		muHeader.hidden = muReject.hidden = muApply.hidden = true;
+		EventMatch = null; nos = false;
+	}
+	muApply.onclick = function() {
+		if(EventMatch) getMeetupRSVP(EventMatch.id, function(rsvp, err) {
+			if(err) { muFound(null,null,err); return; }
+			
+			fCount.set(EventMatch.yes); fCount.onblur();
+			if(EventMatch.fRaw != null) fCost.set(EventMatch.fRaw);
+			fDate.value = utils.toDateTimeBox(new Date(EventMatch.dRaw));
+			if(EventMatch.hosts.length) fName.value = EventMatch.hosts[0][0];
+			
+			const a = aTable.children;
+			for(let i=1,l=a.length,sub,h,n=0; i<l; i++) {
+				sub = a[i].children; if(sub.length !== 3) return;
+				h = rsvp[n++]; while(h&&(h.response=='no'||h.member.event_context.host)) h = rsvp[n++];
+				sub[0].firstChild.value = h?h.member.name:"+1"; if(h) sub[2].firstChild.value = h.member.id;
+			}
+		});
+	}
+	fPay.onchange = function() {
+		if(this.value == 'pap') pem.textContent = "PayPal Email";
+		else pem.textContent = "Email";
 	}
 	//Update cost breakdown system on membership-type change:
 	fType.onchange = function() {
@@ -172,6 +204,7 @@ function costField(field) {
 
 //Generate an event info box that looks like the Meetup website style:
 function showMeetup(event, accuracy, err) {
+	window.ev = event;
 	const box = document.createElement('div'); box.className = 'muEvent';
 	//Error checking:
 	if(err) { box.innerHTML = "<b>Error:</b> "+err; return box; }
@@ -186,17 +219,13 @@ function showMeetup(event, accuracy, err) {
 	loc.textContent = addr+", "+event.venue.city+", "+(event.venue.state||event.venue.country);
 	desc.innerHTML = event.description; desc.textContent = desc.textContent; //Strip HTML.
 	//Event meta:
+	const yesCount = event.yes_rsvp_count-event.event_hosts.length;
 	const meta = utils.mkDiv(box, 'muMeta'), match = utils.mkDiv(meta, 'muSub'), time = utils.mkDiv(meta),
 	date = utils.mkDiv(meta, 'muSub'), rsvp = utils.mkDiv(meta, 'muRSVP');
 	const evDate = utils.formatDate(new Date(event.time)), dSep = evDate.indexOf(' ',6);
 	time.textContent = evDate.substr(0,dSep); date.textContent = evDate.substr(dSep+1);
-	rsvp.innerHTML = event.yes_rsvp_count+" Attendees<br>"+event.waitlist_count+" Waitlist";
+	rsvp.innerHTML = yesCount+" Attendees<br>"+event.waitlist_count+" Waitlist";
 	if(accuracy) { match.style.marginBottom = '6px'; match.textContent = accuracy+" Match"; }
-	//Event fee:
-	if(event.fee) {
-		const fee = utils.mkDiv(meta), feeDesc = utils.mkDiv(meta, 'muSub'); fee.style.marginTop = 6;
-		fee.textContent = utils.formatCost(event.fee.amount); feeDesc.textContent = event.fee.description;
-	}
 	//Event hosts:
 	const eh = event.event_hosts, ehEm = []; if(eh.length) {
 		const hosts = utils.mkDiv(box, 'muHosts'); let hostHTML = "Hosted By: ";
@@ -207,10 +236,18 @@ function showMeetup(event, accuracy, err) {
 		}
 		hosts.innerHTML = hostHTML;
 	}
-	EventMatch = {name:event.name, link:event.link, loc:loc.textContent, ven:event.venue.name,
-	desc:desc.textContent, acc:accuracy, time:time.textContent, date:date.textContent,
-	yes:event.yes_rsvp_count, wait:event.waitlist_count, hosts:ehEm, gid:event.group.urlname};
-	if(event.fee) { EventMatch.fee = utils.formatCost(event.fee.amount); EventMatch.feeDesc = event.fee.description; }
+	//Event fee:
+	if(event.fee) {
+		const fee = utils.mkDiv(meta), feeDesc = utils.mkDiv(meta, 'muSub'); fee.style.marginTop = 6;
+		fee.textContent = utils.formatCost(event.fee.amount); feeDesc.textContent = event.fee.description;
+	}
+	EventMatch = {name:event.name,id:event.id,link:event.link,loc:loc.textContent,ven:event.venue.name,
+	desc:desc.textContent,acc:accuracy,time:time.textContent,date:date.textContent,dRaw:event.time,
+	yes:yesCount,wait:event.waitlist_count,hosts:ehEm,gid:event.group.urlname};
+	if(event.fee) {
+		EventMatch.fRaw = event.fee.amount; EventMatch.fee = utils.formatCost(EventMatch.fRaw);
+		EventMatch.feeDesc = event.fee.description;
+	}
 	return box;
 }
 
@@ -244,7 +281,7 @@ function doPreview() {
 //Submit PDF:
 function doSubmit() { if(pdfData && !pdfSubmit) {
 	//Send emial with PDF attachment:
-	socket.emit('sendToAccounting', pdfData[0], pdfData[1], pdfData[2],
+	socket.emit('sendForm', pdfData[0], pdfData[1], pdfData[2],
 	pdfData[3], pdfData[4], 'pdf', pdfData[5], EventMatch, fType.value=='sgn');
 	showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
 	//Fade out submit button:
@@ -279,24 +316,25 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 	
 	//Class Info:
 	pdfLine(1.5, 'Class Name', className); pdfLine(2, 'Date', date);
-	pdfLine(3, 'Instructor', iName, '#000000'); pdfLine(3.5, 'Email', email, cMail);
-	pdfLine(4, 'Payment', payment);
+	pdfLine(3, 'Instructor', iName, '#000000');
+	pdfLine(3.5, 'Payment', payment); pdfLine(4, 'Email', email, cMail);
 	
 	//Cost Breakdown:
-	const r = charge*sNum, rev = utils.formatCost(r),
-	t = r*((100-rate)/100), total = utils.formatCost(t);
+	const r = charge*sNum, p = utils.formatCost(r-mats),
+	t = (r-mats)*((100-rate)/100)+mats, total = utils.formatCost(t);
 	
 	//Revenue:
 	pdf.setFontSize(20);
-	multiColor(5,cData,utils.formatCost(charge),cSub," x ",cData,
-	sNum,cSub," Students = ",cData,rev,cSub," Class Revenue");
+	if(mats > 0) multiColor(5,cData,utils.formatCost(charge),cSub," x ",cData,sNum,cSub," Students - ",
+	cData,utils.formatCost(mats),cSub," Materials = ",cData,p,cSub," Class Profit");
+	else multiColor(5,cData,utils.formatCost(charge),cSub," x ",cData,sNum,cSub," Students = ",
+	cData,p,cSub," Class Profit");
 	//Reimbursement:
-	multiColor(5.4,cData,rev,cSub," - ",cMain,"("+rate+"% NL Rate)",
-	cSub," = ",cData,total,cSub," Reimbursement");
-	if(mats > 0) multiColor(6.2,cMain,"Materials: ",cData,utils.formatCost(mats));
+	multiColor(5.4,cData,p,cSub," - ",cMain,"("+rate+"% NL Rate)",
+	cSub,(mats > 0)?" + Materials = ":" = ",cData,total,cSub," Reimbursement");
 	//Step 3. Profit!
-	multiColor(10.8,cSub,"( ",cData,rev,cSub," - ",cData,total,
-	cSub," = ",cMain,utils.formatCost(r-t)+" NovaLabs Profit",cSub," )");
+	multiColor(10.8,cSub,"( Revenue - ",cData,total,cSub," = ",
+	cMain,utils.formatCost(r-t)+" NovaLabs Profit",cSub," )");
 	
 	//Attendee List:
 	if(sList && sList.length) {
@@ -325,9 +363,11 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 
 //---------------------------------------- Misc. Functions ----------------------------------------
 
-const DAY_MS = 86400000, WEEK_MS = DAY_MS*7,
-EventsListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&sig_id=51259412&status'+
-'=past&fields=event_hosts&sig=4a302259f6902a81ea95ae216b2591d636d96a6b'; let supportsBdf = false, meetupEvents;
+const TIMEOUT = 8000, DAY_MS = 86400000, WEEK_MS = DAY_MS*7,
+EventsListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&status=past&fields=event_hosts'+
+'&sig_id=51259412&sig=4a302259f6902a81ea95ae216b2591d636d96a6b', EventURI = 'https://api.meetup.com/NOVA-Makers/events/',
+EventURIEnd = '?fields=event_hosts&key=5a7d353f467b54445c784731521326', RsvpURI = 'https://api.meetup.com/NOVA-Makers/events/',
+RsvpURIEnd = '/rsvps?key=5a7d353f467b54445c784731521326'; let supportsBdf = false, meetupEvents;
 
 function findMeetup(name, time, callback) {
 	if(typeof time != 'number' || time <= 0) return "Invalid Search Time/Date!";
@@ -366,8 +406,22 @@ function findMeetup(name, time, callback) {
 			callback(eMin, (acc*100).toFixed(1)+'%');
 		}
 	}
-	if(meetupEvents == null) utils.loadJSONP(EventsListURI, process, 8000);
+	if(meetupEvents == null) utils.loadJSONP(EventsListURI, process, TIMEOUT);
 	else process({data:meetupEvents});
+}
+
+function getMeetup(id, callback) {
+	utils.loadJSONP(EventURI+id+EventURIEnd, function(d) {
+		if(d.data && d.data.errors) { const e = d.data.errors[0]; callback(null,null,e.code+': '+e.message); }
+		else if(!d.data || !Number(d.data.created) > 0) callback(null,null,"Invalid/Null response!"); else callback(d.data,'100%');
+	}, TIMEOUT);
+}
+
+function getMeetupRSVP(id, callback) {
+	utils.loadJSONP(RsvpURI+id+RsvpURIEnd, function(d) {
+		if(d.data && d.data.errors) { const e = d.data.errors[0]; callback(null,e.code+': '+e.message); }
+		else if(!Array.isArray(d.data)) callback(null,"Invalid/Null response!"); else callback(d.data);
+	}, TIMEOUT);
 }
 
 function showInfo(msg, bg) {

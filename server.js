@@ -1,6 +1,6 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
 //Powered By: Linked JS Server v1.42, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
-const VERSION = 'v1.61';
+const VERSION = 'v1.67';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
@@ -16,15 +16,15 @@ const Port = 80, Path = "/root", ServerName = "Automated Forms Server";
 const SEND_TIMEOUT = 15000;
 
 //Filter Patterns:
-const pTitle = /^[\w\-:.<> ]+$/, pText = /^[\w. ]+$/, pEmail = /^[\w\-.]+@[\w\-.]+\.[\w]+$/, pDate = /^[\w,: ]+$/;
+const pTitle = /^[\w\-:.<>&!, ]+$/, pText = /^[\w\+. ]+$/, pEmail = /^[\w\-.]+@[\w\-.]+\.[\w]+$/, pDate = /^[\w,: ]+$/;
 
 //Messages:
 const msgHeader = "{ NovaLabs FormBot Automated Message }", bStyle = 'font:20px "Segoe UI",Helvetica,Arial',
 noHTML = "\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.";
 
 //Email Addresses:
-const mailHost = 'formbot@nova-labs.org', accAddr = ['accounting@nova-labs.org','events@nova-labs.org'],
-memAddr = 'membership@nova-labs.org', TEST_MAIL = 'pecacheu@gmail.com';
+const mailHost = 'formbot@nova-labs.org', accAddr = ['events@nova-labs.org'],
+memAddr = 'membership@nova-labs.org', replyAddr = 'events@nova-labs.org', TEST_MAIL = 'pecacheu@gmail.com';
 
 //Entry Point:
 exports.begin = function(ipList) {
@@ -101,8 +101,8 @@ function initSockets(host) {
 			});
 			
 			//Custom events:
-			if(sType == 'form') this.on('sendToAccounting', function(title, date, uName, uMail, data, dataType, aList, eventMatch, isSignOff) {
-				const event = 'sendToAccounting';
+			if(sType == 'form') this.on('sendForm', function(title, date, uName, uMail, data, dataType, aList, eventMatch, isSignOff) {
+				const event = 'sendForm';
 				//Error checking:
 				if(typeof title != 'string' || title.length > 80 || !pTitle.test(title)) { ack(this,event,"Bad input: title"); return; }
 				if(typeof date != 'string' || date.length > 80 || !pDate.test(date)) { ack(this,event,"Bad input: date"); return; }
@@ -122,20 +122,20 @@ function initSockets(host) {
 					if(typeof a[2] != 'number' || !(a[2] >= 0)) err = "ID Invalid";
 					if(err) { ack(this,event,"Bad input: attendeeList["+i+"]: "+err); return; }
 				}
-				this.cliLog('yellow',"("+event+") Sending '"+title+"' email to accounting & more...");
+				this.cliLog('yellow',"("+event+") Submitting '"+title+"'...");
 				//Generate Meetup Event & Auto Timeout:
 				const subject = (uMail=='liamg@gmail.com'?"<<FORMBOT_"+VERSION+"_TEST>>":"FormBot: ")+title+" on "+date,
 				self = this, evHTML = genMeetup(eventMatch), aTable = aList.length?"<p>Event Attendee List:</p>"+genTable(aList):'';
 				if(typeof evHTML != 'string') { ack(this,event,"Error generating meetup data: "+evHTML[0]); return; }
 				let okay = 0, timer = setTimeout(function() { ack(self,event,"Failed to send email: Timed out!"); }, SEND_TIMEOUT);
 				function cancel() { if(timer != null) clearTimeout(timer); timer = null; }
-				//Send PDF to accounting, etc:
+				//Send PDF to addresses:
 				const addrList = accAddr.slice(); addrList.push(uMail=='liamg@gmail.com'?TEST_MAIL:uMail);
 				let okLen = addrList.length-1; if(isSignOff) okLen++;
 				for(let i=0,l=addrList.length; i<l; i++) {
 					const addr = addrList[i]; console.log(chalk.yellow("Sending to "+addr));
 					mail({
-						from:mailHost, to:addr, subject:subject, text:msgHeader+noHTML,
+						from:mailHost, to:addr, replyTo:i==l-1?replyAddr:uMail, subject:subject, text:msgHeader+noHTML,
 						html:"<body style='"+bStyle+"'><p><b>"+msgHeader+"</b></p>"+
 						evHTML+(i==l-1?aTable:'')+"<br>Powered by bTech.</body>",
 						attachments:[
@@ -145,7 +145,7 @@ function initSockets(host) {
 						if(err && err.message != 'read ECONNRESET') {
 							cancel(); ack(self,event,"Failed to send to "+addr+": "+err.message); self.cliErr(err); return;
 						} else if(err) self.cliErr(">>SUPPRESSED ERROR MSG<< "+err);
-						self.cliLog('yellow',"Email sent!"); console.log("REPLY:",reply);
+						self.cliLog('yellow',addr+" : Email sent!"); console.log("REPLY:",reply);
 						if(okay >= okLen) { cancel(); ack(self,event); } else okay++;
 					});
 				}
@@ -156,7 +156,7 @@ function initSockets(host) {
 					const HTML = "<body style='"+bStyle+"'><p><b>"+msgHeader+"</b></p><p>Filled out by: "
 					+uName+" ("+uMail+")</p>"+evHTML+aTable+"<br>Powered by bTech.</body>";
 					mail({
-						from:mailHost, to:memAddr, subject:subject, text:msgHeader+noHTML, html:HTML
+						from:mailHost, to:memAddr, replyTo:uMail, subject:subject, text:msgHeader+noHTML, html:HTML
 					}, function(err, reply) {
 						if(err && err.message != 'read ECONNRESET') {
 							cancel(); ack(self,event,"Failed to send to "+memAddr+": "+err.message); self.cliErr(err); return;
@@ -194,7 +194,7 @@ function genTable(tb) {
 	}
 	for(let i=0,l=tb.length; i<l; i++) makeRow(tb[i],i);
 	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+"'><th>Name"+
-	"</th><th>Email</th><th>Meetup Username</th></tr>"+listHTML+"</table>";
+	"</th><th>Email</th><th>Meetup ID</th></tr>"+listHTML+"</table>";
 }
 
 function genMeetup(em) {

@@ -22,11 +22,12 @@
 		<p>Class Name: <input id="fTitle" class="field" type="text" charPattern="[\w\-: ]" value="Example Class"/></p>
 		<p>Class Date: <input id="fDate" class="field" type="datetime-local"/></p>
 		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w ]"/></p>
-		<p>PayPal Email: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"/></p>
+		<p><span id="pem">PayPal Email</span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"/></p>
 		<h4 id="muHeader" hidden>This Event Is Probably:</h4><p id="muMatch"></p>
-		<button id="muReject" hidden>This Isn't My Event</button>
+		<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
 		<p>Payment: <select id="fPay" class="field">
-			<option value="eml">PayPal</option>
+			<option value="pap">PayPal</option>
+			<option value="chk">Check</option>
 			<option value="don">Donate To NovaLabs</option>
 		</select></p>
 		<h4>Cost Breakdown</h4>
@@ -38,7 +39,7 @@
 		</select></p>
 		<p>Cost/Student: <input id="fCost" class="field"/></p>
 		<p>Students: <input id="fCount" class="field"/></p>
-		<p>Materials: <input id="fMatCost" class="field"/> (Optional)</p>
+		<p>Materials: <input id="fMatCost" class="field"/> (Expenses purchased by instructor for class)</p>
 		<p hidden>NovaLabs Rate: <input id="fRate" class="field"/></p>
 		<h6 id="fRateInfo">30% NovaLabs Rate</h6>
 		<button id="sButton" style="margin:1em 0">Preview Summary</button>
@@ -83,12 +84,12 @@
 				console.warn("ACK "+(status?'true':'false')+": "+event+(err?", '"+err+"'":''));
 				if(!status) { //Show server-side errors:
 					showInfo("Server Error: '"+(err||'{UNKNOWN}')+"'");
-					if(event == 'sendToAccounting') { //Un-hide submit button on submit error:
+					if(event == 'sendForm') { //Un-hide submit button on submit error:
 						const ss = sButton.style; ss.display = null;
 						ss.opacity = 1; pdfSubmit = false;
 					}
-				} else if(event == 'sendToAccounting') {
-					showInfo("Submitted document to Accounting.", 'rgba(0,150,20,0.8)');
+				} else if(event == 'sendForm') {
+					showInfo("Form submitted successfully.", 'rgba(0,150,20,0.8)');
 					pdfSubmit = false;
 				}
 			});
