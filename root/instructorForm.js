@@ -1,5 +1,5 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Instructor Form, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
+//Instructor Form, Copyright (ï¿½) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
 
 "use-strict";
 let FORM_TYPE = "Instructor Reimbursement Form";
@@ -146,7 +146,7 @@ function initLayout() {
 	//Update cost breakdown system on membership-type change:
 	fType.onchange = function() {
 		const v = this.value; fRate.par.hidden = (v != 'cus');
-		if(v == 'cus') r = 40; else if(v == 'mkr') r = 30; else if(v == 'sgn') r = 20; else r = 40;
+		if(v == 'mkr') r = 30; else if(v == 'sgn') r = 20; else r = 30;
 		fRateInfo.textContent = (v=='cus'?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
 	}
 	//Add onupdate & onfocus functions to fields:
