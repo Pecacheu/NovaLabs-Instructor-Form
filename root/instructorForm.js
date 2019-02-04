@@ -146,7 +146,7 @@ function initLayout() {
 	//Update cost breakdown system on membership-type change:
 	fType.onchange = function() {
 		const v = this.value; fRate.par.hidden = (v != 'cus');
-		if(v == 'mkr') r = 30; else if(v == 'sgn') r = 20; else r = 30;
+		if(v == 'mkr' || v == 'sgn') r = 30; else r = 30;
 		fRateInfo.textContent = (v=='cus'?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
 	}
 	//Add onupdate & onfocus functions to fields:
@@ -260,6 +260,7 @@ function doPreview() {
 	//Error checking:
 	if(!title) return "Class Name"; if(!fDate.value || !date) return "Class Date";
 	if(!name) return "Instructor Name"; if(!email) return "Instructor Email";
+	if(!fType.value) return "Class Type";
 	if(!charge || charge < 15) return "Cost Per Student";
 	if(!sNum || sNum < 0) return "Students Count";
 	if(!(mats >= 0)) return "Material Cost is undefined!?";

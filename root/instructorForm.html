@@ -27,11 +27,13 @@
 		<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
 		<p>Payment: <select id="fPay" class="field">
 			<option value="pap">PayPal</option>
-			<option value="chk">Check</option>
+			<option value="kep">Credit My Account</option>
 			<option value="don">Donate To NovaLabs</option>
+			<option value="chk">Check (Approval Required)</option>
 		</select></p>
 		<h4>Cost Breakdown</h4>
 		<p>Class Type: <select id="fType" class="field">
+			<option selected disabled value="">Select One</option>
 			<option value="mkr">Maker Class</option>
 			<option value="sgn">Sign-Off Class</option>
 			<option value="cus">Custom Rate</option>
