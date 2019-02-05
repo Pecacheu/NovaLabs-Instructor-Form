@@ -145,8 +145,7 @@ function initLayout() {
 	}
 	//Update cost breakdown system on membership-type change:
 	fType.onchange = function() {
-		const v = this.value; fRate.par.hidden = (v != 'cus');
-		if(v == 'mkr' || v == 'sgn') r = 30; else r = 30;
+		const v = this.value; fRate.par.hidden = (v != 'cus'); r = 30;
 		fRateInfo.textContent = (v=='cus'?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
 	}
 	//Add onupdate & onfocus functions to fields:
@@ -283,7 +282,7 @@ function doPreview() {
 function doSubmit() { if(pdfData && !pdfSubmit) {
 	//Send emial with PDF attachment:
 	socket.emit('sendForm', pdfData[0], pdfData[1], pdfData[2],
-	pdfData[3], pdfData[4], 'pdf', pdfData[5], EventMatch, fType.value=='sgn');
+	pdfData[3], pdfData[4], 'pdf', pdfData[5], EventMatch, fType.value=='sgn'||fType.value=='ssn');
 	showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
 	//Fade out submit button:
 	const ss = sButton.style; ss.transition = 'opacity 0.5s ease-out'; ss.opacity = 0;
@@ -342,11 +341,16 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 		pdf.addPage(); const mPos = (8.5/6)*2;
 		pdf.setFontSize(40); pdf.setTextColor(cTitle);
 		pdf.text(8.5/2,0.7,"Attendee List",null,null,'center');
-		
+
+		if(fType.value == 'ssn') {
+			pdf.setFontSize(15); pdf.setTextColor('#ff0000');
+			pdf.text(8.5/2,1.05,"SAFETY SIGN-OFF ONLY. DO NOT SIGN-OFF INDIVIDUAL NAMES.",null,null,'center');
+		}
+
 		pdf.setFontSize(20); pdf.setTextColor(cMain);
 		pdf.text(xOff,1.4,"Name"); pdf.text(mPos,1.4,"Email");
 		pdf.text(8.5-xOff,1.4,"Meetup ID",null,null,'right');
-		
+
 		pdf.setFontSize(15); pdf.setTextColor(cTitle);
 		for(let i=0,l=sList.length,off=1.75,item; i<l; i++) {
 			item = sList[i];
@@ -433,5 +437,6 @@ function showInfo(msg, bg) {
 }
 
 function selBoxValue(sb) {
-	const op = sb.options; return op[op.selectedIndex].label;
+	const op = sb.options, l = op[op.selectedIndex];
+	if(!l) return null; return l.label;
 }

@@ -35,7 +35,8 @@
 		<p>Class Type: <select id="fType" class="field">
 			<option selected disabled value="">Select One</option>
 			<option value="mkr">Maker Class</option>
-			<option value="sgn">Sign-Off Class</option>
+			<option value="sgn">Tool Sign-Off Class</option>
+			<option value="ssn">Safety Sign-Off Class</option>
 			<option value="cus">Custom Rate</option>
 		</select></p>
 		<p>Cost/Student: <input id="fCost" class="field"/></p>
@@ -113,7 +114,7 @@
 		FORM_TYPE = FORM_TYPE.replace('Form','Test'); header.textContent = FORM_TYPE;
 		
 		fTitle.value = "How To Do The Things 102"; fDate.value = '1994-03-21T16:20';
-		fName.value = 'Brian Putersens'; fMail.value = 'liamg@gmail.com'; fPay.value = 'eml';
+		fName.value = 'Brian Putersens'; fMail.value = 'liamg@gmail.com'; fPay.value = 'pap';
 		
 		const desc = "This is a NovaLabs Meetup event which teaches individuals how to do the stuff and things. This is"
 		+" an introductory class, so please no advanced students. Also, no children ages 12 or below, and no adults 25"
@@ -135,15 +136,15 @@
 		if(muMatch.firstChild) muMatch.firstChild.replaceWith(evBox); else muMatch.appendChild(evBox);
 		muHeader.hidden = muReject.hidden = false;
 		
-		fType.value = 'mkr'; fCost.value = '$69.00'; fCost.num = 69.00;
+		fType.value = 'sgn'; fCost.value = '$69.00'; fCost.num = 69.00;
 		fCount.value = fCount.num = 5; fMatCost.value = '$6.00'; fMatCost.num = 6;
 		
 		const nameList = [
-			["MLG Masta", "mlg@aol.com", "MLG_Masta"],
-			["Not Trump", "hillary@cox.net", "xXx_NotDonaldTrump_xXx"],
-			["PewDiePie", "hitler@septiceye.biz", "Pewds420"],
-			["That One Guy", "thatoneguy@example.com", "_Anonymous_O.o"],
-			["Fakus Namecus", "fake@scpfoundation.net", "FakusPro"]
+			["MLG Masta", "mlg@aol.com", 12],
+			["Not Trump", "hillary@cox.net", 34],
+			["PewDiePie", "hitler@septiceye.biz", 56],
+			["That One Guy", "thatoneguy@example.com", 78],
+			["Fakus Namecus", "fake@scpfoundation.net", 90]
 		];
 		
 		fCount.onblur();
