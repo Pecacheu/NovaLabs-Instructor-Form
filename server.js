@@ -1,6 +1,6 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
 //Powered By: Linked JS Server v1.42, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
-const VERSION = 'v1.67';
+const VERSION = 'v1.7';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
@@ -113,7 +113,7 @@ function initSockets(host) {
 				if(typeof dataType != 'string' || dataType.length !== 3) { ack(this,event,"Invalid data type!"); return; }
 				if(eventMatch && typeof eventMatch != 'object') { ack(this,event,"Bad input: eventMatch"); return; }
 				if(!Array.isArray(aList) || !aList.length || aList.length > 200) { ack(this,event,"Bad input: attendeeList"); return; }
-				if(typeof isSignOff != 'boolean') { ack(this,event,"Bad input: isSignOff"); return; }
+				if(typeof isSignOff != 'number' || isSignOff < 0) { ack(this,event,"Bad input: isSignOff"); return; }
 				//Attendee List Error Checking:
 				for(let i=0,a,err=false,l=aList.length; i<l; i++) {
 					a=aList[i]; if(a.length !== 3) err = "Invalid Length";
@@ -125,7 +125,8 @@ function initSockets(host) {
 				this.cliLog('yellow',"("+event+") Submitting '"+title+"'...");
 				//Generate Meetup Event & Auto Timeout:
 				const subject = (uMail=='liamg@gmail.com'?"<<FORMBOT_"+VERSION+"_TEST>>":"FormBot: ")+title+" on "+date,
-				self = this, evHTML = genMeetup(eventMatch), aTable = aList.length?"<p>Event Attendee List:</p>"+genTable(aList):'';
+				self = this, evHTML = genMeetup(eventMatch), aTable = aList.length?(isSignOff==2?"<p style='color:#f00'><b>Note:</b>"+
+				" Safety Sign-Off Only. Do not sign off on individual tools.</p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'';
 				if(typeof evHTML != 'string') { ack(this,event,"Error generating meetup data: "+evHTML[0]); return; }
 				let okay = 0, timer = setTimeout(function() { ack(self,event,"Failed to send email: Timed out!"); }, SEND_TIMEOUT);
 				function cancel() { if(timer != null) clearTimeout(timer); timer = null; }
