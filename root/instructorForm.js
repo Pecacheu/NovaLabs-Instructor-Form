@@ -344,7 +344,7 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 
 		if(fType.value == 'ssn') {
 			pdf.setFontSize(15); pdf.setTextColor('#ff0000');
-			pdf.text(8.5/2,1.05,"SAFETY SIGN-OFF ONLY. DO NOT SIGN-OFF INDIVIDUAL NAMES.",null,null,'center');
+			pdf.text(8.5/2,1.05,"SAFETY SIGN-OFF ONLY. DO NOT SIGN-OFF ON INDIVIDUAL TOOLS.",null,null,'center');
 		}
 
 		pdf.setFontSize(20); pdf.setTextColor(cMain);
