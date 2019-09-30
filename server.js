@@ -1,14 +1,12 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Powered By: Linked JS Server v1.42, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
-const VERSION = 'v1.7';
+//Powered By: Linked JS Server v1.42, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
+const VERSION = 'v1.9';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
+let clients = {}, serverIP;
 
 "use strict";
-
-//Global Vars:
-let server, clients = {}, serverIP;
 
 //Config Options:
 const debug = false;
@@ -16,7 +14,8 @@ const Port = 80, Path = "/root", ServerName = "Automated Forms Server";
 const SEND_TIMEOUT = 15000;
 
 //Filter Patterns:
-const pTitle = /^[\w\-:.<>&!, ]+$/, pText = /^[\w\+. ]+$/, pEmail = /^[\w\-.]+@[\w\-.]+\.[\w]+$/, pDate = /^[\w,: ]+$/;
+const pTitle = /^[\w\-:.<>()[\]&*%!, ]+$/, pText = /^[\w\+\-(). ]+$/,
+pEmail = /^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate = /^[\w,: ]+$/;
 
 //Messages:
 const msgHeader = "{ NovaLabs FormBot Automated Message }", bStyle = 'font:20px "Segoe UI",Helvetica,Arial',
@@ -25,6 +24,13 @@ noHTML = "\nHTML-enabled viewer is required for viewing this message.\n\nPowered
 //Email Addresses:
 const mailHost = 'formbot@nova-labs.org', accAddr = ['events@nova-labs.org'],
 memAddr = 'membership@nova-labs.org', replyAddr = 'events@nova-labs.org', TEST_MAIL = 'pecacheu@gmail.com';
+
+//Auth Keys:
+/*const ApiKey = "0", ApiSecret = "0", RedirUri = "https://nova-labs.org",
+AuthUri = "https://secure.meetup.com/oauth2/authorize?client_id="+ApiKey+"&response_type=code&redirect_uri="+RedirUri,
+ValUri = "https://secure.meetup.com/oauth2/access", ValData = "client_id="+ApiKey+"&client_secret="
++ApiSecret+"&grant_type=authorization_code&redirect_uri="+RedirUri+"&code=",
+ValOpt = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};*/
 
 //Entry Point:
 exports.begin = function(ipList) {
@@ -68,8 +74,7 @@ function startServer() {
 
 //Creates socket connection to internal server:
 function initSockets(host) {
-	server = socketio.listen(host);
-	server.on('connection', function(socket) {
+	socketio.listen(host).on('connection', function(socket) {
 		console.log(chalk.cyan("[SOCKET] Establishing client connection..."));
 		
 		//Handle premature disconnection:
@@ -101,7 +106,19 @@ function initSockets(host) {
 			});
 			
 			//Custom events:
-			if(sType == 'form') this.on('sendForm', function(title, date, uName, uMail, data, dataType, aList, eventMatch, isSignOff) {
+			/*this.on('authKey', function() { this.emit('authKey',AuthUri); });
+			this.on('valKey', function(code) {
+				const req = https.request(ValUri, ValOpt, function(res) {
+					let data = ''; res.on('data', function(d) { data += d; });
+					res.on('end', function() {
+						try { data = JSON.parse(data); } catch(e) { data = {error:e}; }
+						this.emit('valKey',data);
+					});
+				});
+				req.on('error', function(e) { ack(this,event,e); });
+				req.write(ValData+code); req.end();
+			});*/
+			this.on('sendForm', function(title, date, uName, uMail, data, dataType, aList, eventMatch, isSignOff) {
 				const event = 'sendForm';
 				//Error checking:
 				if(typeof title != 'string' || title.length > 80 || !pTitle.test(title)) { ack(this,event,"Bad input: title"); return; }
@@ -132,7 +149,8 @@ function initSockets(host) {
 				function cancel() { if(timer != null) clearTimeout(timer); timer = null; }
 				//Send PDF to addresses:
 				const addrList = accAddr.slice(); addrList.push(uMail=='liamg@gmail.com'?TEST_MAIL:uMail);
-				let okLen = addrList.length-1; if(isSignOff) okLen++;
+				let atp=title.indexOf('-'), atName = title.substr(0,atp==-1?title.length:atp).replace(/\s/g,''),
+				okLen = addrList.length-1; if(isSignOff) okLen++;
 				for(let i=0,l=addrList.length; i<l; i++) {
 					const addr = addrList[i]; console.log(chalk.yellow("Sending to "+addr));
 					mail({
@@ -140,7 +158,7 @@ function initSockets(host) {
 						html:"<body style='"+bStyle+"'><p><b>"+msgHeader+"</b></p>"+
 						evHTML+(i==l-1?aTable:'')+"<br>Powered by bTech.</body>",
 						attachments:[
-							{filename:title.replace(/\s/g,'')+'.'+dataType, contentType:router.types['.'+dataType]||'text/plain', content:data}
+							{filename:atName+'.'+dataType, contentType:router.types['.'+dataType]||'text/plain', content:data}
 						]
 					}, function(err, reply) {
 						if(err && err.message != 'read ECONNRESET') {
@@ -183,9 +201,9 @@ function initSockets(host) {
 
 function genTable(tb) {
 	//Styles:
-	const tStyle = 'overflow:hidden;max-width:1000px;color:#888;border-radius:10px;width:100%;border'+
-	'-collapse:collapse;background:#f5f5f5;box-shadow:2px 2px 2px rgba(0,0,0,0.3);font-size:16px',
-	tdStyle = 'border-top:1px solid #eee;padding:9px 12px;line-height:15px;white-space:nowrap;text-overflow:ellipsis',
+	const tStyle = 'overflow:hidden;max-width:1000px;color:#888;border-radius:10px;width:100%;border-collapse:'+
+	'collapse;background:#f5f5f5;box-shadow:2px 2px 2px rgba(0,0,0,0.3);font-size:16px;table-layout:fixed',
+	tdStyle = 'border-top:1px solid #eee;padding:9px 12px;line-height:15px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden',
 	trFirstStyle = 'border-top:none;background:#eee', trEvenStyle = "style='background:#dcdcdc'",
 	nameStyle = 'font-weight:700', mailStyle = 'color:#5299e2;font-weight:500', userStyle = 'text-align:right';
 	//Generate Table:
@@ -194,7 +212,7 @@ function genTable(tb) {
 		"<td style='"+tdStyle+';'+mailStyle+"'>"+a[1]+"</td><td style='"+tdStyle+';'+userStyle+"'>"+a[2]+"</td></tr>";
 	}
 	for(let i=0,l=tb.length; i<l; i++) makeRow(tb[i],i);
-	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+"'><th>Name"+
+	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+"'><th style='width:40%'>Name"+
 	"</th><th>Email</th><th>Meetup ID</th></tr>"+listHTML+"</table>";
 }
 

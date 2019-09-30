@@ -1,34 +1,32 @@
-//Node.js Auto Loader v3.2, created by Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com). Copyright 2016, All rights reserved.
+//Node.js Auto Loader v3.4, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
+"use strict";
 
-var os = require('os'),
-fs = require('fs'),
-dns = require('dns'),
-http = require('http'),
-spawn = require('child_process').spawn;
-var sysOS, sysArch, sysCPU; getOS();
+const os = require('os'), fs = require('fs'), dns = require('dns'),
+http = require('http'), exec = require('child_process').execFile;
+let sysOS, sysArch, sysCPU; getOS();
 
 //------------------------------------ CONFIGURATION OPTIONS ------------------------------------
 
-var debug = false; //<- Debug Mode Enable
-var deleteDir = false; //<- Delete Entire Module Directory and Reinstall if Incomplete
-var autoInstallOptionals = true; //<- Also Install Optional Packages During Required Package Installation
-var npmInstallNames = ["socket.io", "chalk", "sendmail"]; //<- Dependencies List
-var optionalInstall = []; //<- Optional Dependencies (That's an oxymoron)
-var externalFiles = []; //Optional Site Resources (Placed under pages/resources)
-var pathResolves = {}; //Optional Sub-paths for Select File Types:
+let debug = false, //<- Debug Mode Enable
+deleteDir = false, //<- Delete Entire Module Directory and Reinstall if Incomplete
+autoInstallOptionals = true, //<- Also Install Optional Packages During Required Package Installation
+npmInstallNames = ["chalk", "socket.io", "sendmail"], //<- Dependencies List
+optionalInstall = [], //<- Optional Dependencies
+externalFiles = [], //<- Optional Site Resources
+extFilePath = "/root/resources/"; //<- Resource Download Location
 
 //------------------------------------ END OF CONFIG OPTIONS ------------------------------------
 
-var ipList = getLocalIPList();
-console.log("\nIP Address List:",ipList,"\nOperating System: "+sysOS+", "+sysArch);
+const ipList = getIPList();
+console.log("IP Address List:",ipList,"\nOperating System: "+sysOS+", "+sysArch);
 if(debug) console.log("CPU: "+sysCPU+"\n\nWarning, Debug Mode Enabled.");
 console.log("\nChecking for Dependencies...");
 
 if(verifyDepends()) {
 	//------------------------------------------ MAIN CODE ------------------------------------------
-	var chalk = require('chalk');
+	const chalk = require('chalk');
 	console.log(chalk.gray("All Dependencies Found!\n"));
-	var main = require("./server").begin(ipList);
+	require("./server").begin(ipList);
 	//-------------------------------------- END OF MAIN CODE ---------------------------------------
 } else {
 	console.log("Dependencies Missing!\n");
@@ -38,129 +36,82 @@ if(verifyDepends()) {
 //Auto Installer Functions:
 
 function verifyDepends() {
-	var pathsExist = true;
-	//Node.js Modules:
-	for(var n=0,l=npmInstallNames.length; n<l; n++) {
-		var nSplit = npmInstallNames[n].split(" as "), name = nSplit[0]; if(nSplit.length > 1) name = nSplit[1];
-		if(!fs.existsSync(__dirname+"/node_modules/"+name)) { pathsExist = false; break; }
+	if(process.argv.length > 2 && process.argv[2] == "reload") { deleteDir=1; return 0; }
+	let p=1; for(let n=0,l=npmInstallNames.length,ns,name; n<l; n++) {
+		ns=npmInstallNames[n].split(" as "), name=ns[0]; if(ns.length > 1) name=ns[1];
+		if(!fs.existsSync(__dirname+"/node_modules/"+name)) { p=0; break; }
 	}
-	//Internal HTML Client Files:
-	for(n=0,l=externalFiles.length; n<l; n++) {
-		var fileName = externalFiles[n].substring(externalFiles[n].lastIndexOf('/')+1);
-		if(!fs.existsSync(determinePath(fileName)+fileName)) { pathsExist = false; break; }
+	for(let n=0,l=externalFiles.length,fn; n<l; n++) {
+		fn=externalFiles[n]; fn=fn.substr(fn.lastIndexOf('/')+1);
+		if(!fs.existsSync(extFilePath+fn)) { p=0; break; }
 	}
-	return pathsExist;
+	return p;
 }
 
+let ind;
 function runJSLoader() {
-	console.log("Starting Installer..."); console.log();
-	checkInternet(function(res) {
-		if(res) {
-			if(externalFiles.length) {
-				createNewFolder(__dirname+"/pages/resources/");
-				console.log("Downloading JavaScript Libraries..."); var i = 0;
-				var fileName = externalFiles[i].substring(externalFiles[i].lastIndexOf('/')+1);
-				if(!folderExists(determinePath(fileName))) createNewFolder(determinePath(fileName));
-				var file = fs.createWriteStream(determinePath(fileName)+fileName);
-				function response(resp) {
-					fileName = externalFiles[i].substring(externalFiles[i].lastIndexOf('/')+1);
-					if(!folderExists(determinePath(fileName))) createNewFolder(determinePath(fileName));
-					file = fs.createWriteStream(determinePath(fileName)+fileName);
-					resp.pipe(file); file.on('finish', function() {
-						console.log("Downloaded '"+fileName+"'");
-						i++; if(i >= externalFiles.length) { console.log(); doInstall(); }
-						else http.get(externalFiles[i], response);
-					});
-				}
-				http.get(externalFiles[i], response);
-			} else doInstall();
-		} else {
-			console.log("Error: No Internet Connection Detected!");
-			console.log(); process.exit();
-		}
+	console.log("Starting Installer...\n");
+	checkInternet((res) => {
+		if(!res) { console.log("Error: No Internet Connection Detected!"); process.exit(); return; }
+		if(externalFiles.length) {
+			console.log("Downloading Resources..."); mkDir(__dirname+extFilePath,1);
+			ind=0; http.get(externalFiles[ind], httpRes);
+		} else doInstall();
 	});
 }
 
-function determinePath(filename) {
-	var ext = filename.substring(filename.lastIndexOf('.')), pathRes;
-	pathRes = "/pages"+(pathResolves[ext] || "/resources/");
-	if(debug) console.log("ext '"+ext+"' resolves '"+pathRes+"'");
-	return __dirname+pathRes;
-}
-
-function folderExists(folder) {
-	return fs.existsSync(folder) && fs.lstatSync(folder).isDirectory();
+function httpRes(rs) {
+	let fn=externalFiles[ind]; fn=fn.substr(fn.lastIndexOf('/')+1);
+	let file = fs.createWriteStream(__dirname+extFilePath+fn); rs.pipe(file);
+	file.on('finish', () => {
+		console.log("Downloaded '"+fn+"'");
+		if(++ind == externalFiles.length) { console.log(); doInstall(); }
+		else http.get(externalFiles[ind], httpRes);
+	});
 }
 
 function doInstall() {
-	if(deleteDir) { console.log("Emptying Install Directory...\n"); deleteFolder(__dirname+"/node_modules/"); }
+	if(deleteDir) { console.log("Deleting Install Directory...\n"); remDir(__dirname+"/node_modules"); }
 	console.log("Installing Node.js Modules...");
-	if(autoInstallOptionals) npmInstallNames = npmInstallNames.concat(optionalInstall);
-	var i = 0; runinternal();
-	function runinternal() {
-		if(i >= npmInstallNames.length) { deleteFolder(__dirname+"/etc"); console.log("Installer Finished. Exiting...\n"); process.exit(); } else {
-			var nSplit = npmInstallNames[i].split(" as "), module = nSplit[0], inst = nSplit[0]; if(nSplit.length > 1) module = nSplit[1];
-			i++; if(deleteDir || !fs.existsSync(__dirname+"/node_modules/"+module)) {
-				console.log("Installing NPM Module: "+module+"\n");
-				
-				var args = ["install", inst, "--prefix", __dirname];
-				var cmd = spawn(sysOS == "Windows" ? "npm.cmd" : "npm", args);
-				cmd.stdout.pipe(process.stdout); cmd.stderr.pipe(process.stdout);
-				
-				cmd.on('close', function(code) {
-					console.log("Module '"+module+"' Installed.\n");
-					runinternal();
-				});
-			} else { console.log("Skipping '"+module+"' Module.\n"); runinternal(); }
-		}
-	}
+	if(autoInstallOptionals) Array.prototype.push.apply(npmInstallNames, optionalInstall);
+	ind=0; installRun();
 }
 
-function createNewFolder(path) {
-	if(fs.existsSync(path)) deleteFolder(path);
+function installRun() {
+	if(ind == npmInstallNames.length) {
+		remDir(__dirname+"/package-lock.json");
+		console.log("Installer Finished. Exiting..."); process.exit(); return;
+	}
+	let ns=npmInstallNames[ind].split(" as "),mod=ns[0],inst=mod; if(ns.length > 1) mod=ns[1];
+	ind++; if(deleteDir || !fs.existsSync(__dirname+"/node_modules/"+mod)) {
+		console.log("Installing NPM Module: "+mod+"\n");
+		let cmd = exec(sysOS=="Windows"?"npm.cmd":"npm", ["install",inst], {cwd:__dirname});
+		cmd.stdout.pipe(process.stdout); cmd.stderr.pipe(process.stdout);
+		cmd.on('error', (e) => { console.error("Error: "+e); cmd.removeAllListeners(); });
+		cmd.on('close', () => { console.log("Module '"+mod+"' Installed.\n"); installRun(); });
+	} else { console.log("Skipping '"+mod+"' Module.\n"); installRun(); }
+}
+
+function mkDir(path, noDel) {
+	if(fs.existsSync(path)) {
+		if(noDel && fs.lstatSync(path).isDirectory()) return;
+		else remDir(path);
+	}
 	fs.mkdirSync(path);
 }
 
-function deleteFolder(path) {
-	if(fs.existsSync(path)) { //If path exists:
-		var fileList = fs.readdirSync(path);
-		for(var t=0,l=fileList.length; t<l; t++) { 
-			var currPath = path+"/"+fileList[t];
-			if(fs.lstatSync(currPath).isDirectory()) { //If directory, recurse:
-				if(debug) console.log("-- open dir "+fileList[t]);
-				deleteFolder(currPath);
-			} else { //If file, delete it:
-				if(debug) console.log("delete "+fileList[t]);
-				fs.unlinkSync(currPath);
-			}
-		}
-		if(debug) console.log("-- remove dir");
-		fs.rmdirSync(path);
-	}
+function remDir(p,c) {
+	if(!c) { if(p.endsWith('/')) p=p.substr(0,p.length-1); if(!fs.existsSync(p)) return; }
+	if(!fs.lstatSync(p).isDirectory()) { fs.unlinkSync(p); return; }
+	let d=fs.readdirSync(p); for(let s in d) remDir(p+"/"+d[s],1); fs.rmdirSync(p);
 }
 
-function checkInternet(callback) {
-	dns.resolve("www.google.com", function(err) { callback(!err); });
-}
-
-function getLocalIPList() {
-	var netList = [], ifaceList = os.networkInterfaces();
-	if(typeof ifaceList == "object") {
-		var ifaceListKeys = Object.keys(ifaceList);
-		for(var i=0,l=ifaceListKeys.length; i<l; i++) {
-			var iface = ifaceList[ifaceListKeys[i]];
-			if(typeof iface == "object") {
-				var ifaceKeys = Object.keys(iface);
-				for(var j=0,n=ifaceKeys.length; j<n; j++) {
-					var ifItm = iface[ifaceKeys[j]];
-					if(ifItm.internal == false && ifItm.family == "IPv4" && ifItm.mac != "00:00:00:00:00:00") {
-						if(ifItm.address) netList.push(ifItm.address);
-					}
-				}
-			}
-		}
-	}
-	return netList.length ? netList : false;
+function checkInternet(cb) { dns.resolve("www.google.com", (e) => {cb(!e)}); }
+function getIPList() {
+	const ip=[], fl=os.networkInterfaces();
+	for(let k in fl) fl[k].forEach((f) => { if(!f.internal && f.family == "IPv4"
+	&& f.mac != "00:00:00:00:00:00" && f.address) ip.push(f.address); });
+	return ip.length?ip:0;
 }
 
 function getOS() {

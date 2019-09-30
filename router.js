@@ -1,5 +1,5 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Node.js Webserver Engine v3.12, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
+//Node.js Webserver Engine v3.14, Copyright (©) 2017 Bryce Peterson (pecacheu@gmail.com)
 
 const path = require("path"), fs = require("fs");
 let debug = false, chalk = null;
@@ -91,17 +91,11 @@ function parseUriSub(uri, dir) {
 	while(dir.substr(-1) == '/') dir = dir.substr(0,dir.length-1);
 	let name; const ni = dir.lastIndexOf('/');
 	if(ni == -1) name = '/'+dir; else { name = dir.substr(ni); if(name.length <= 1) return null; }
-	if(startsWith(uri, name)) {
+	if(uri.startsWith(name)) {
 		if(uri.length > name.length && uri.charAt(name.length) != '/') return null;
 		return dir+uri.substr(name.length);
 	}
 	return null;
-}
-
-function startsWith(a, b) {
-	const blen = b.length;
-	if(a.length >= blen && a.substr(0,blen) == b) return true;
-	return false;
 }
 
 function sendCode(resp, code, msg) {

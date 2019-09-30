@@ -1,5 +1,4 @@
-<!-- This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details. -->
-<!-- Instructor Form, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com) -->
+<!-- Instructor Form, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com) -->
 <html>
 	<head>
 		<title>Instructor Reimbursement Form</title>
@@ -47,7 +46,7 @@
 		<button id="sButton" style="margin:1em 0">Preview Summary</button>
 		<p id="infoBox"></p>
 		<h4>Attendee List (For Sign-Off/Orientation Classes)</h4>
-		<table><tbody id="aTable"><tr><th>Name</th><th>Email</th><th>Meetup ID</th></tr></tbody></table>
+		<table><tbody id="aTable"><tr><th>Name</th><th>Email</th><th>Notes</th><th>Meetup ID</th></tr></tbody></table>
 	</div>
 	<script>
 	let socket = {}, statMsg = false; initBg();
@@ -71,17 +70,14 @@
 	//Window Load:
 	window.onload = function() {
 		initLayout(); statusMsg("Connecting...");
-		
+
 		//Check for backdrop filter support:
-		const ds = document.body.style;
-		supportsBdf = typeof ds.backdropFilter != 'undefined' ||
-		typeof ds.webkitBackdropFilter != 'undefined' ||
-		typeof ds.mozBackdropFilter != 'undefined';
-		statusMsg("Connection To Server Lost!");
-		
+		const ds = document.body.style; supportsBdf = typeof ds.backdropFilter != 'undefined' ||
+		typeof ds.webkitBackdropFilter != 'undefined' || typeof ds.mozBackdropFilter != 'undefined';
+
 		//Init Socket.io:
 		ioInit('form', function(id) { //Connect:
-			statusMsg(null); console.log("Connected!");
+			console.log("Connected!"); statusMsg(); //authCheck();
 			socket.on('ack', function(event, status, err) {
 				console.warn("ACK "+(status?'true':'false')+": "+event+(err?", '"+err+"'":''));
 				if(!status) { //Show server-side errors:

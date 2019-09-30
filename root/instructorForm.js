@@ -1,5 +1,5 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Instructor Form, Copyright (�) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com)
+//Instructor Form, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
 
 "use-strict";
 let FORM_TYPE = "Instructor Reimbursement Form";
@@ -45,10 +45,26 @@ function makeTiles(force) {
 
 let pdfData = null, pdfSubmit = false, EventMatch = null;
 
+const SEL = "<select class='field'>\
+	<option selected>---</option>\
+	<option>No Show</option>\
+	<option>No GO</option>\
+	<option>Paid at Kiosk/Other</option>\
+	<option>Minor 8-11</option>\
+	<option>Minor 12-15</option>\
+	<option>Minor 16-17</option>\
+	<option>Do Not Sign Off</option>\
+	<option>Incomplete</option>\
+	<option>Do Not Sign Off</option>\
+	<option>Safety Sign Off Only</option>\
+	<option>No NL Account</option>\
+</select>";
+
 function layoutMakeRow() {
 	const r = utils.mkEl('tr');
 	utils.mkEl('td',r,'name',null,"<input type='text' onfocus='resetPreview()'/>");
 	utils.mkEl('td',r,'mail',null,"<input type='email' onfocus='resetPreview()' value='unknown@meetup.com'/>");
+	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
 	utils.mkEl('td',r,'user',null,"<input type='number' onfocus='resetPreview()' pattern='\d*'/>");
 	aTable.appendChild(r);
 }
@@ -81,10 +97,25 @@ function doCostBreakdown() { if(!pdfSubmit) {
 		} else if(mats >= t) {
 			text += "\nWarning: Your class did not make any profit! You may still submit your form.";
 			color = 'rgba(200,160,0,0.8)';
-		} else text += "\nNote: Materials cost is for tax purposes only.";
+		} else if(mats) text += "\nNote: Materials cost is for tax purposes only.";
 	}
 	showInfo(text, color);
 }}
+
+/*function authCheck() {
+	if(!utils.getCookie("key")) { //Validate Key:
+		statusMsg("Please wait, validating auth token...");
+		socket.emit('valKey',code); socket.once('valKey', function(res) {
+			console.log(res);
+			//if(res.error) statusMsg("Auth Error: "+res.error); else statusMsg();
+		});
+	} else if(!utils.getCookie("key")) { //Init Auth Redirect:
+		statusMsg("Please wait, we're redirecting you to the auth service...");
+		socket.emit('authKey'); socket.once('authKey', function(uri) {
+			location = "https://"+uri; //setTimeout(function() { location = "https://"+uri; }, 2000);
+		});
+	} else statusMsg();
+}*/
 
 function initLayout() {
 	//Setup field defaults & input parsing types:
@@ -129,13 +160,13 @@ function initLayout() {
 			fCount.set(EventMatch.yes); fCount.onblur();
 			if(EventMatch.fRaw != null) fCost.set(EventMatch.fRaw);
 			fDate.value = utils.toDateTimeBox(new Date(EventMatch.dRaw));
-			if(EventMatch.hosts.length) fName.value = EventMatch.hosts[0][0];
+			//if(EventMatch.hosts.length) fName.value = EventMatch.hosts[0][0];
 			
 			const a = aTable.children;
 			for(let i=1,l=a.length,sub,h,n=0; i<l; i++) {
-				sub = a[i].children; if(sub.length !== 3) return;
+				sub = a[i].children; if(sub.length !== 4) return;
 				h = rsvp[n++]; while(h&&(h.response=='no'||h.member.event_context.host)) h = rsvp[n++];
-				sub[0].firstChild.value = h?h.member.name:"+1"; if(h) sub[2].firstChild.value = h.member.id;
+				sub[0].firstChild.value = h?h.member.name:"+1"; if(h) sub[3].firstChild.value = h.member.id;
 			}
 		});
 	}
@@ -176,30 +207,8 @@ function initLayout() {
 			sButton.textContent = "Submit PDF";
 		} else doSubmit(); //Submit.
 	}
+	return 1;
 }
-
-/*function numField(field, min, max) {
-	field.value = field.num = Number(field.value)||0; field.oninput = function() {
-		let val = Number(this.value); if(!val && val != 0) this.value = val = this.num; else {
-			if(val < min) val = min; else if(val > max) val = max; else val = Math.floor(val);
-			this.value = this.num = val;
-		}
-		if(this.onnuminput) this.onnuminput(val);
-	}
-	field.set = function(n) { n = Number(n)||0; this.value = this.num = n; }
-}
-
-function costField(field) {
-	field.ns = ''; field.num = 0; field.value = '$0.00'; field.onkeydown = function() {
-		const k = event.keyCode; if(k == 8 || k == 46) this.ns = this.ns.substr(0,this.ns.length-1);
-		else if(k >= 48 && k <= 57) this.ns += (k-48); else if(k >= 96 && k <= 105) this.ns += (k-96);
-		const n = Number(this.ns)||0; this.value = utils.formatCost(n); event.preventDefault();
-		this.num = n; if(this.onnuminput) this.onnuminput(n);
-	}
-	field.set = function(n) {
-		n = Number(n)||0; this.num = n; this.value = utils.formatCost(n); this.ns = n.toString();
-	}
-}*/
 
 //Generate an event info box that looks like the Meetup website style:
 function showMeetup(event, accuracy, err) {
@@ -267,10 +276,10 @@ function doPreview() {
 	if(!pm || typeof pm != 'string') return "Payment Type is undefined!?";
 	const aNodes=aTable.children; if(aNodes.length !== sNum+1) return "Attendee List size must equal Student Count";
 	//Read Attendee List:
-	const sList=[]; for(let i=1,l=aNodes.length,sub; i<l; i++) {
-		sub = aNodes[i].children; if(sub.length !== 3) return "Attendee List, Child "+i+": Column count must be 3!";
-		const name=sub[0].firstChild.value, mail=sub[1].firstChild.value, user=Number(sub[2].firstChild.value)||0;
-		if(name && mail) sList.push([name,mail,user]);
+	const sList=[]; for(let i=1,l=aNodes.length,sub,n,r,u; i<l; i++) {
+		sub = aNodes[i].children; if(sub.length !== 4) return "Attendee List, Child "+i+": Column count must be 4!";
+		n=sub[0].firstChild.value, m=sub[1].firstChild.value, r=sub[2].firstChild, u=Number(sub[3].firstChild.value)||0;
+		if(n && m) sList.push([n+(r.options.selectedIndex?' ('+selBoxValue(r)+')':''),m,u]);
 	}
 	if(sList.length != aNodes.length-1) return "Attendee List! (Only user IDs are optional)";
 	//Generate PDF:
@@ -338,36 +347,37 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 	
 	//Attendee List:
 	if(sList && sList.length) {
-		pdf.addPage(); const mPos = (8.5/6)*2;
-		pdf.setFontSize(40); pdf.setTextColor(cTitle);
+		pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
 		pdf.text(8.5/2,0.7,"Attendee List",null,null,'center');
 
 		pdf.setFontSize(20); pdf.setTextColor(cMain);
-		pdf.text(xOff,1.4,"Name"); pdf.text(mPos,1.4,"Email");
+		pdf.text(xOff,1.4,"Name"); pdf.text(3.8,1.4,"Email");
 		pdf.text(8.5-xOff,1.4,"Meetup ID",null,null,'right');
 
 		pdf.setFontSize(15); pdf.setTextColor(cTitle);
 		for(let i=0,l=sList.length,off=1.75,item; i<l; i++) {
-			item = sList[i];
-			pdf.text(xOff,off,(i+1)+'. '+item[0]); pdf.setTextColor(cMail);
-			pdf.text(mPos,off,item[1]); pdf.setTextColor(cTitle);
-			if(item[2]) pdf.text(8.5-xOff,off,item[2].toString(),null,null,'right');
-			off += 0.25;
+			item = sList[i]; pdf.text(xOff,off,(i+1)+'. '+item[0]);
+			pdf.setTextColor(cMail); pdf.text(3.8,off,item[1]); pdf.setTextColor(cTitle);
+			if(item[2]) pdf.text(8.5-xOff,off,item[2].toString(),null,null,'right'); off += 0.25;
 		}
 	}
-	if(/Edge\/|Trident\/|MSIE /.test(navigator.userAgent)) { //IE or Edge:
-		pdf.save(className.replace(/\s/g,'')+'_localCopy.pdf'); //Save Local Copy.
-	} else window.open(pdf.output('datauri')); //Preview In-browser Using Data URI.
+	//window.open(pdf.output('datauri'));
+	let f = utils.mkDiv(document.body,null,{position:'fixed',width:'100%',height:'100%',display:'flex',flexFlow:'column'});
+	utils.mkDiv(f,'pdfExit',null,"PDF Preview <i>(Click to exit)</i>");
+	let d = utils.mkEl('iframe',f,null,{border:'none',flex:'auto'}), s = document.body.style; s.overflow = 'hidden';
+	d.src = pdf.output('datauristring'); f.onclick = function() { f.remove(); s.overflow = null; }
 	return pdf.output();
 }
 
 //---------------------------------------- Misc. Functions ----------------------------------------
 
 const TIMEOUT = 8000, DAY_MS = 86400000, WEEK_MS = DAY_MS*7,
-EventsListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&status=past&fields=event_hosts'+
+/*EventListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&status=past&fields=event_hosts'+
 '&sig_id=51259412&sig=4a302259f6902a81ea95ae216b2591d636d96a6b', EventURI = 'https://api.meetup.com/NOVA-Makers/events/',
-EventURIEnd = '?fields=event_hosts&key=5a7d353f467b54445c784731521326', RsvpURI = 'https://api.meetup.com/NOVA-Makers/events/',
-RsvpURIEnd = '/rsvps?key=5a7d353f467b54445c784731521326'; let supportsBdf = false, meetupEvents;
+EventURIEnd = '?fields=event_hosts&key=5a7d353f467b54445c784731521326', RsvpURIEnd = '/rsvps?key=5a7d353f467b54445c784731521326';*/
+EventListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&status=past&fields=event_hosts',
+EventURI = 'https://api.meetup.com/NOVA-Makers/events/23097362', EventURIEnd = '?fields=event_hosts', RsvpURIEnd = '/rsvps';
+let supportsBdf = false, meetupEvents;
 
 function findMeetup(name, time, callback) {
 	if(typeof time != 'number' || time <= 0) return "Invalid Search Time/Date!";
@@ -406,7 +416,7 @@ function findMeetup(name, time, callback) {
 			callback(eMin, (acc*100).toFixed(1)+'%');
 		}
 	}
-	if(meetupEvents == null) utils.loadJSONP(EventsListURI, process, TIMEOUT);
+	if(meetupEvents == null) utils.loadJSONP(EventListURI, process, TIMEOUT);
 	else process({data:meetupEvents});
 }
 
@@ -418,7 +428,7 @@ function getMeetup(id, callback) {
 }
 
 function getMeetupRSVP(id, callback) {
-	utils.loadJSONP(RsvpURI+id+RsvpURIEnd, function(d) {
+	utils.loadJSONP(EventURI+id+RsvpURIEnd, function(d) {
 		if(d.data && d.data.errors) { const e = d.data.errors[0]; callback(null,e.code+': '+e.message); }
 		else if(!Array.isArray(d.data)) callback(null,"Invalid/Null response!"); else callback(d.data);
 	}, TIMEOUT);
