@@ -124,9 +124,9 @@ function initLayout() {
 	fRate.set(30); utils.costField(fCost); utils.costField(fMatCost);
 	//Update attendee table size on students count change:
 	fCount.onblur = function() {
-		let num = Number(this.value); if(num >= 0) { num++;
-			while(num > aTable.childElementCount) layoutMakeRow();
-			while(num < aTable.childElementCount) layoutRemRow();
+		let n = Number(this.value)+1; if(n) {
+			while(n > aTable.childElementCount) layoutMakeRow();
+			while(n < aTable.childElementCount) layoutRemRow();
 		}
 	}
 	//Update meetup event matches on class date change:
@@ -140,11 +140,8 @@ function initLayout() {
 		if(muMatch.firstChild) muMatch.firstChild.replaceWith(evBox); else muMatch.appendChild(evBox);
 		if(accuracy == '100%') {
 			fDate.value = utils.toDateTimeBox(new Date(EventMatch.dRaw));
-			if(Number(fTitle.value) > 0) {
-				let en = EventMatch.name;//, ei = en.indexOf(':');
-				//if(ei > 0 && ei < 4) en = en.substr(ei+1).trim();
-				fTitle.value = en; nos = true;
-			}
+			if(Number(fTitle.value) > 0) fTitle.value = EventMatch.name;
+			nos = true;
 		}
 		muHeader.hidden = muReject.hidden = muApply.hidden = false; mSearch = false;
 	}
@@ -160,7 +157,7 @@ function initLayout() {
 			fCount.set(EventMatch.yes); fCount.onblur();
 			if(EventMatch.fRaw != null) fCost.set(EventMatch.fRaw);
 			fDate.value = utils.toDateTimeBox(new Date(EventMatch.dRaw));
-			//if(EventMatch.hosts.length) fName.value = EventMatch.hosts[0][0];
+			fTitle.value = EventMatch.name;
 			
 			const a = aTable.children;
 			for(let i=1,l=a.length,sub,h,n=0; i<l; i++) {
@@ -376,7 +373,7 @@ const TIMEOUT = 8000, DAY_MS = 86400000, WEEK_MS = DAY_MS*7,
 '&sig_id=51259412&sig=4a302259f6902a81ea95ae216b2591d636d96a6b', EventURI = 'https://api.meetup.com/NOVA-Makers/events/',
 EventURIEnd = '?fields=event_hosts&key=5a7d353f467b54445c784731521326', RsvpURIEnd = '/rsvps?key=5a7d353f467b54445c784731521326';*/
 EventListURI = 'https://api.meetup.com/NOVA-Makers/events?desc=true&scroll=recent_past&status=past&fields=event_hosts',
-EventURI = 'https://api.meetup.com/NOVA-Makers/events/23097362', EventURIEnd = '?fields=event_hosts', RsvpURIEnd = '/rsvps';
+EventURI = 'https://api.meetup.com/NOVA-Makers/events/', EventURIEnd = '?fields=event_hosts', RsvpURIEnd = '/rsvps';
 let supportsBdf = false, meetupEvents;
 
 function findMeetup(name, time, callback) {

@@ -1,8 +1,7 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Javscript Utils (version 8.2), functions by http://github.com/Pecacheu unless otherwise stated.
+//Javscript Utils (version 8.3.3), functions by http://github.com/Pecacheu unless otherwise stated.
 
-"use strict";
-
+'use strict';
 const utils = {};
 
 //UtilRect Objects & ClientRect Polyfill:
@@ -14,13 +13,13 @@ function UtilRect(t,b,l,r) {
 	if(f(t) && f(b) && f(l) && f(r)) { tt = t; bb = b; ll = l; rr = r; }
 	else if(t instanceof ClientRect) { tt = t.top; bb = t.bottom; ll = t.left; rr = t.right; }
 	
-	utils.addProp(this,['top','x'],function(){return tt},function(v){if(f(v))tt=v});
-	utils.addProp(this,'bottom',function(){return bb},function(v){if(f(v))bb=v});
-	utils.addProp(this,['left','y'],function(){return ll},function(v){if(f(v))ll=v});
-	utils.addProp(this,'right',function(){return rr},function(v){if(f(v))rr=v});
+	utils.define(this,['top','x'],function(){return tt},function(v){if(f(v))tt=v});
+	utils.define(this,'bottom',function(){return bb},function(v){if(f(v))bb=v});
+	utils.define(this,['left','y'],function(){return ll},function(v){if(f(v))ll=v});
+	utils.define(this,'right',function(){return rr},function(v){if(f(v))rr=v});
 	
-	utils.addProp(this,'width',function(){return rr-ll},function(v){if(f(v)){if(v<0)v=0;rr=ll+v}});
-	utils.addProp(this,'height',function(){return bb-tt},function(v){if(f(v)){if(v<0)v=0;bb=tt+v}});
+	utils.define(this,'width',function(){return rr-ll},function(v){if(f(v)){if(v<0)v=0;rr=ll+v}});
+	utils.define(this,'height',function(){return bb-tt},function(v){if(f(v)){if(v<0)v=0;bb=tt+v}});
 }
 
 //Check if UtilRect contains point or other rect:
@@ -30,7 +29,7 @@ UtilRect.prototype.contains = function(x, y) {
 	return x >= this.left && x <= this.right && y >= this.top && y <= this.bottom;
 };
 
-//Expand (or contract if negative) a UtilRect by amout of pixels.
+//Expand (or contract if negative) a UtilRect by num of pixels.
 //Useful for using UtilRect objects as element hitboxes. Returns self for chaining.
 UtilRect.prototype.expand = function(by) {
 	this.top -= by; this.left -= by; this.bottom += by;
@@ -49,8 +48,7 @@ utils.setCookie = function(name,value,exp,secure) {
 	if(secure) c += ';secure'; document.cookie = c;
 }
 utils.remCookie = function(name) {
-	document.cookie = encodeURIComponent(name)
-	+'=;expires='+new Date(0).toUTCString();
+	document.cookie = encodeURIComponent(name)+'=;expires='+new Date(0).toUTCString();
 }
 utils.getCookie = function(name) {
 	const n1 = encodeURIComponent(name), n2 = ' '+n1, cl = document.cookie.split(';');
@@ -61,18 +59,9 @@ utils.getCookie = function(name) {
 	return null;
 }
 
-//Like Java.
-String.prototype.startsWith = function(s) { return this.substr(0,s.length) === s; }
-String.prototype.endsWith = function(s) { return this.substr(this.length-s.length) === s; }
-
-//Convert String to Title Case.
-utils.titleCase = function(s) {
-	s = s.toLowerCase().split(/(?=[^a-zA-Z](?=[a-zA-Z]))/g);
-	for(let i=0,l=s.length,w; i<l; i++) {
-		w=s[i]; if(i==0) s[i] = w[0].toUpperCase()+w.substr(1);
-		else if(s[i].length > 1) s[i] = w[0]+w[1].toUpperCase()+w.substr(2);
-	}
-	return s.join('');
+//Wrap a function so that it always has a preset argument list when called:
+Function.prototype.wrap = function(/* ... */) {
+	const f = this, a = arguments; return function(){return f.apply(arguments,a)};
 }
 
 //Deep (recursive) Object.create cloning function.
@@ -87,7 +76,35 @@ utils.copy = function(o,sub) {
 }
 
 //UserAgent-based Mobile device detection.
-utils.mobile = ('orientation' in window || navigator.userAgent.match(/Mobi/i));
+utils.deviceInfo = function(ua) {
+	if(!ua) ua = navigator.userAgent; const d = {};
+	if(!ua.startsWith("Mozilla/5.0 ")) return d;
+	let o = ua.indexOf(')'), o2 = ua.indexOf(' ',o+2), o3 = ua.indexOf(')',o2+1);
+	o3 = o3==-1?o2+1:o3+2; let os = d.rawOS = ua.substring(13,o);
+	if(os.startsWith("Windows NT ")) {
+		d.os = "Windows"; let vs = os.indexOf(';',12), ts = os.indexOf(';',vs+1)+2, te = os.indexOf(';',ts);
+		d.type = os.substring(ts,te==-1?undefined:te)+" PC"; d.version = os.substring(11,vs).replace(/.0$/,'');
+	} else if(os.startsWith("Linux; Android ")) {
+		d.os = "Android"; let ds = os.indexOf(';',16), te = os.indexOf(' Build',ds+3);
+		d.type = os.substring(ds+2, te==-1?undefined:te);
+		d.version = os.substring(15,ds).replace(/.0$/,'');
+	} else if(os.startsWith("iPhone; CPU iPhone OS ")) {
+		d.os = "iOS"; d.type = "iPhone";
+		d.version = os.substring(22, os.indexOf(' ',23)).replace(/_/g,'.');
+	} else if(os.startsWith("Macintosh; Intel Mac OS X ")) {
+		d.os = "MacOS"; d.type = "Macintosh";
+		d.version = os.substr(26).replace(/_/g,'.');
+	} else if(os.startsWith("X11; ")) {
+		let ds = os.indexOf(';',6), ts = os.indexOf(';',ds+3);
+		d.os = "Linux "+os.substring(5,ds); d.type = os.substring(ds+2,ts);
+		d.version = os.substr(ts+5);
+	}
+	d.engine = ua.substring(o+2,o2); d.browser = ua.substring(o3);
+	d.mobile = !!ua.match(/Mobi/i); return d;
+}
+
+utils.device = utils.deviceInfo();
+utils.mobile = ('orientation' in window || utils.device.mobile);
 
 //Generates modified input field for css skinning on unsupported browsers. This is a JavaScript
 //fallback for when css 'appearance:none' doesn't work. For Mobile Safari, this is usually
@@ -132,7 +149,8 @@ function mulBoxLabel(sb) {
 }
 
 //Turns your boring <input> into a mobile-friendly number entry field with max/min & negative support.
-//Optional 'decMax' parameter is maximum percision of decimal allowed. (ex. 3 would give percision of 0.001)
+//Optional 'decMax' parameter is maximum precision of decimal allowed. (ex. 3 would give precision of 0.001)
+//Use field.onnuminput as your oninput function, and get the number value with field.num
 //On mobile, use star key for decimal point and pound key for negative.
 utils.numField = function(field, min, max, decMax) {
 	if(min == null) min = -2147483648; if(max == null) max = 2147483647;
@@ -169,6 +187,7 @@ utils.numField = function(field, min, max, decMax) {
 }
 
 //Turns your boring <input> into a mobile-friendly currency entry field, optionally with custom currency symbol.
+//Use field.onnuminput as your oninput function, and get the number value with field.num
 //On mobile, use star key for decimal point.
 utils.costField = function(field, sym) {
 	field.setAttribute('pattern',"\\d*"); field.type = 'tel';
@@ -197,7 +216,7 @@ utils.costField = function(field, sym) {
 	}
 }
 
-//Format Number as Currency. Uses '$' by default.
+//Format Number as currency. Uses '$' by default.
 utils.formatCost = function(n, sym) {
 	if(!sym) sym = '$'; if(!n) return sym+'0.00';
 	const p = n.toFixed(2).split('.');
@@ -239,21 +258,14 @@ utils.suffix = function(n) {
 }
 
 //Virtual Page Navigation:
-utils.goBack = function(){history.back()};
-utils.goForward = function(){history.forward()};
-utils.go = function(id) {
-	const a = Array.from(arguments);
-	if(id != null) history.pushState(a,id,'#'+id); doNav(a);
-}
+utils.goBack = function(){history.back()}
+utils.goForward = function(){history.forward()}
+utils.go = function(url, data){history.pushState(data,'',url||location.pathname);doNav(data)}
 window.addEventListener('popstate', function(e){doNav(e.state)});
 window.addEventListener('load', function(){setTimeout(function(){doNav(history.state)},1)});
+function doNav(s) { if(utils.onNav) utils.onNav.call(null,s); }
 
-function doNav(s) {
-	if(!Array.isArray(s)) s = [location.hash.substr(1)];
-	if(utils.onNav) utils.onNav.apply(null,s);
-}
-
-//Create element with tag, parent, classes, style properties, and innerHTML content.
+//Create element with parent, classes, style properties, and innerHTML content.
 //Supply null (or undefined) for any parameters to leave blank.
 utils.mkEl = function(tag, p, c, s, i) {
 	const e = document.createElement(tag);
@@ -281,16 +293,14 @@ utils.textWidth = function(text, font) {
 }
 
 //Add a getter/setter pair to an existing object:
-utils.addProp = function(obj, name, getter, setter) {
-	const t={}; if(getter) t.get=getter; if(setter) t.set=setter;
+utils.define = function(obj, name, get, set) {
+	const t={}; if(get) t.get=get; if(set) t.set=set;
 	if(Array.isArray(name)) for(let i=0,l=name.length; i<l; i++) Object.defineProperty(obj, name[i] ,t);
 	else Object.defineProperty(obj, name, t);
 }
 
-//Remove "empty" elements like 0, false, " ",
-//undefined, and NaN from an array. Set 'keepZero'
-//to true to keep elements that are set to '0'.
-//Useful in combination with Array.split.
+//Remove 'empty' elements like 0, false, ' ', undefined, and NaN from array.
+//Often useful in combination with Array.split. Set 'kz' to true to keep '0's.
 //Function by: Pecacheu & http://stackoverflow.com/users/5445/cms
 Array.prototype.clean = function(keepZero) {
 	for(let i=0,e,l=this.length; i<l; i++) {
@@ -300,13 +310,14 @@ Array.prototype.clean = function(keepZero) {
 }
 
 //Remove first instance of item from array. Returns false if not found.
-Array.prototype.remove = function(item) {
-	const ind = this.indexOf(item); if(ind == -1) return false;
-	this.splice(ind,1); return true;
+//Use a while loop to remove all instances.
+Array.prototype.remove = function(itm) {
+	const i = this.indexOf(itm); if(i==-1) return false;
+	this.splice(i,1); return true;
 }
 
 //Get an element's index in it's parent. Returns -1 if the element has no parent.
-utils.addProp(Element.prototype,'index',function() {
+utils.define(Element.prototype,'index',function() {
 	const p = this.parentElement; if(!p) return -1;
 	return Array.prototype.indexOf.call(p.children, this);
 });
@@ -318,14 +329,14 @@ Element.prototype.insertChildAt = function(el, i) {
 }
 
 //Get element bounding rect as UtilRect object:
-utils.addProp(Element.prototype,'boundingRect',function() {
+utils.define(Element.prototype,'boundingRect',function() {
 	return new UtilRect(this.getBoundingClientRect());
 });
 
 //No idea why this isn't built-in, but it's not.
 Math.cot = function(x) {return 1/Math.tan(x)}
 
-//Check if string, array, or other object is empty or not.
+//Check if string, array, or other object is empty.
 utils.isBlank = function(s) {
 	if(s == null) return true;
 	if(typeof s == 'string') return !/\S/.test(s);
@@ -351,84 +362,67 @@ utils.firstEmptyChar = function(obj) {
 }
 
 //Converts a number into letters (upper and lower) from a to Z.
-utils.numToChar = function(num) {
-	if(num<=25) return String.fromCharCode(num+97);
-	else if(num>=26 && num<=51) return String.fromCharCode(num+39);
+utils.numToChar = function(n) {
+	if(n<=25) return String.fromCharCode(n+97);
+	else if(n>=26 && n<=51) return String.fromCharCode(n+39);
 	let mVal, fVal;
-	if(num<2756) { mVal=utils.rstCount(Math.floor(num/52)-1,52); fVal=utils.rstCount(num,52); }
-	else if(num<143364) { mVal=utils.rstCount(Math.floor((num-52)/2704)-1,52); fVal=utils.rstCount(num-52,2704)+52; }
-	else if(num<7454980) { mVal=utils.rstCount(Math.floor((num-2756)/140608)-1,52); fVal=utils.rstCount(num-2756,140608)+2756; }
+	if(n<2756) { mVal=rstCount(Math.floor(n/52)-1,52); fVal=rstCount(n,52); }
+	else if(n<143364) { mVal=rstCount(Math.floor((n-52)/2704)-1,52); fVal=rstCount(n-52,2704)+52; }
+	else if(n<7454980) { mVal=rstCount(Math.floor((n-2756)/140608)-1,52); fVal=rstCount(n-2756,140608)+2756; }
 	else return false; //More than "ZZZZ"? No. Just, no.
 	return utils.numToChar(mVal)+utils.numToChar(fVal);
 }
 
 //Use this to reset your counter each time 'maxVal' is reached.
-utils.rstCount = function(val, maxVal) { while(val >= maxVal) val -= maxVal; return val; }
+function rstCount(val, maxVal) { while(val >= maxVal) val -= maxVal; return val; }
 //This alternate method doesn't always work due to inaccuracy of trig functions:
 //function squareWave(x,p) {a=p/2; return Math.round(-(2*a/Math.PI)*Math.atan(utils.cot(x*Math.PI/p))+a)}
 
-//Merges two (or more) objects,
-//giving the last one precedence.
-//Function by: https://gist.github.com/padolsey/272905
-utils.merge = function(target, source /*, source2, ... */) {
-	if(typeof target !== 'object') target = {};
-	for(let property in source) {
-		if(source.hasOwnProperty(property)) {
-		let sourceProperty = source[property];
-			if(typeof sourceProperty === 'object') {
-				target[property] = utils.merge(target[property], sourceProperty);
-				continue;
+//Semi-recursively merges two (or more) objects, giving the last precedence.
+//If both objects contain a property at the same index, and both are Arrays/Objects, they are merged.
+utils.merge = function(o/*, src1, src2... */) {
+	for(let a=1,al=arguments.length,n,oP,nP; a<al; a++) {
+		n = arguments[a]; for(let k in n) {
+			oP = o[k]; nP = n[k]; if(oP && nP) { //Conflict.
+				if(oP.length >= 0 && nP.length >= 0) { //Both Array-like.
+					for(let i=0,l=nP.length,ofs=oP.length; i<l; i++) oP[i+ofs] = nP[i]; continue;
+				} else if(typeof oP == 'object' && typeof nP == 'object') { //Both Objects.
+					for(let pk in nP) oP[pk] = nP[pk]; continue;
+				}
 			}
-			target[property] = sourceProperty;
+			o[k] = nP;
 		}
 	}
-	for(let a=2,l=arguments.length; a<l; a++) utils.merge(target, arguments[a]);
-	return target;
+	return o;
 }
 
-//Returns 0 if a is negative, or a otherwise.
-utils.pos = function(a) {
-	if(a < 0) return 0; else return a;
+//Keeps value within max/min bounds. Also handles NaN or null.
+utils.bounds = function(n, min=0, max=1) {
+	if(!(n>=min)) return min; if(!(n<=max)) return max; return n;
 }
 
-//Keeps value within max/min bounds.
-utils.bounds = function(val, min, max) {
-	if(typeof val != 'number') return min;
-	if(val>max) return max; if(val<min) return min; return val;
+//'Normalizes' a value so that it ranges from min to max, but unlike utils.bounds,
+//this function retains input's offset. This can be used to normalize angles.
+utils.norm = utils.normalize = function(n, min=0, max=1) {
+	const c = Math.abs(max-min);
+	if(n < min) while(n < min) n += c; else while(n >= max) n -= c;
+	return n;
 }
 
-//Values in range lower to upper are translated to range from 0 to 1.
-utils.section = function(input, lower, upper) {
-	return (utils.range(input, lower, upper) - lower) / (upper - lower);
-}
-
-//"Normalizes" a value so that it ranges from low -> high,
-//but unlike utils.range, this function retains input's offset.
-//This can be used to easily clip angles, either RAD or DEG, to a certian range.
-utils.normalize = function(val, min, max) {
-	let cycle = Math.abs(max-min);
-	if(val < min) while(val < min) val += cycle;
-	else while(val >= max) val -= cycle;
-	return val;
-}
-
-//Finds and removes all instances of 'remStr' string contained
-//within 'inStr', and retuns the resulting string.
-utils.cutStr = function(inStr, remStr) {
-	let str = inStr, fnd; while((fnd=str.indexOf(remStr)) != -1) {
-		str = str.slice(0, fnd)+str.slice(fnd+remStr.length);
+//Finds and removes all instances of 'rem' contained within s.
+utils.cutStr = function(s, rem) {
+	let fnd; while((fnd=s.indexOf(rem)) != -1) {
+		s = s.slice(0, fnd)+s.slice(fnd+rem.length);
 	}
-	return str;
+	return s;
 }
 
 //Polyfill for String.trim()
 //Function by: http://www.w3schools.com/
-if(!String.prototype.trim) String.prototype.trim = function(str) {
-	if(str.trim) return str.trim(); return str.replace(/^\s+|\s+$/gm,'');
-}
+if(!String.prototype.trim) String.prototype.trim = function() { return this.replace(/^\s+|\s+$/gm,''); }
 
 //Given CSS property value 'prop', returns object with
-//space-seperated values from the property string.
+//space-separated values from the property string.
 utils.parseCSS = function(prop) {
 	const pArr={}, pKey="", keyNum=0; prop=prop.trim();
 	function parseInner(str) {
@@ -463,63 +457,61 @@ utils.buildCSS = function(propArr) {
 	return pStr.substring(0, pStr.length-1);
 }
 
+function defaultStyle() {
+	const ss = document.styleSheets;
+	for(let s=0,j=ss.length; s<j; s++) try { ss[s].rules; return ss[s]; } catch(e) {}
+	let ns = utils.mkEl('style',document.head); ns.appendChild(document.createTextNode(''));
+	return ns.sheet;
+}
+function toKey(k) {
+	return k.replace(/[A-Z]/g, function(s) {return '-'+s.toLowerCase()});
+}
+
 //Create a CSS class and append it to the current document. Fill 'propList' object
-//with keys and values repersenting the CSS properties you want to add to the class.
+//with key/value pairs representing the properties you want to add to the class.
 utils.addClass = function(className, propList) {
-	let style, str=''; const keys = Object.keys(propList);
-	if(document.styleSheets.length > 0) style = document.styleSheets[0]; else {
-		style = document.createElement('style');
-		style.appendChild(document.createTextNode(''));
-		document.head.appendChild(style);
-	}
-	for(let i=0,l=keys.length; i<l; i++) str += keys[i]+":"+propList[keys[i]]+";";
-	style.insertRule("."+className+"{"+str+"}", 1);
+	const style = defaultStyle(), keys = Object.keys(propList); let str='';
+	for(let i=0,l=keys.length; i<l; i++) str += toKey(keys[i])+":"+propList[keys[i]]+";";
+	style.addRule("."+className,str);
 }
 
 //Create a CSS selector and append it to the current document.
 utils.addId = function(idName, propList) {
-	let style, str=''; const keys = Object.keys(propList);
-	if(document.styleSheets.length > 0) style = document.styleSheets[0]; else {
-		style = document.createElement('style');
-		style.appendChild(document.createTextNode(''));
-		document.head.appendChild(style);
-	}
-	for(let i=0,l=keys.length; i<l; i++) str += keys[i]+":"+propList[keys[i]]+";";
-	style.insertRule("#"+idName+"{"+str+"}", 1);
+	const style = defaultStyle(), keys = Object.keys(propList); let str='';
+	for(let i=0,l=keys.length; i<l; i++) str += toKey(keys[i])+":"+propList[keys[i]]+";";
+	style.addRule("#"+idName,str);
 }
 
 //Create a CSS keyframe and append it to the current document.
 utils.addKeyframe = function(name, content) {
-	let style; if(document.styleSheets.length > 0) style = document.styleSheets[0]; else {
-		style = document.createElement('style');
-		style.appendChild(document.createTextNode(''));
-		document.head.appendChild(style);
-	}
-	style.insertRule("@keyframes "+name+"{"+content+"}", 1);
+	defaultStyle().addRule("@keyframes "+name,content);
 }
 
-//Remove a CSS class from all stylesheets in the current document.
-utils.removeClass = function(className) {
+//Remove a specific css selector (including the '.' or '#') from all stylesheets in the current document.
+utils.removeSelector = function(name) {
 	for(let s=0,style,rList,j=document.styleSheets.length; s<j; s++) {
-		style = document.styleSheets[s]; rList = style.rules;
-		for(key in rList) if(rList[key].type == 1 && rList[key]
-		.selectorText == "."+className) style.removeRule(key);
-	} //rule.type #1 = CSSStyleRule
+		style = document.styleSheets[s]; try { rList = style.rules; } catch(e) { continue; }
+		for(let key in rList) if(rList[key].type == 1 && rList[key].selectorText == name) style.removeRule(key);
+	}
 }
 
-//Converts HEX color to RGB.
+//Converts HEX color to 24-bit RGB.
 //Function by: https://github.com/Pecacheu and others
 utils.hexToRgb = function(hex) {
-	let raw = parseInt(hex.substr(1), 16);
-	return [(raw >> 16) & 255, (raw >> 8) & 255, raw & 255];
+	const c = parseInt(hex.substr(1), 16);
+	return [(c >> 16) & 255, (c >> 8) & 255, c & 255];
 }
 
-//Generates a random interger somewhere between min and max.
-utils.rand = function(min, max) { return Math.floor(Math.random() * (max-min+1) + min); }
+//Generates random integer from min to max.
+utils.rand = function(min, max, res, ease) {
+	if(!res) res=1; max*=res,min*=res; let r=Math.random();
+	return Math.round((ease?ease(r):r)*(max-min)+min)/res;
+}
 
-//Convert a url query string into a JavaScript object:
+//Parses a url query string into an Object.
 //Function by: Pecacheu (From Pecacheu's Apache Test Server)
-utils.fromQuery = function(string) {
+utils.fromQuery = function(str) {
+	if(str.startsWith('?')) str = str.substr(1);
 	function parse(params, pairs) {
 		const pair = pairs[0], spl = pair.indexOf('='),
 		key = decodeURIComponent(pair.substr(0,spl)),
@@ -529,10 +521,10 @@ utils.fromQuery = function(string) {
 		else if(typeof params[key] == 'array') params[key].push(value);
 		else params[key] = [params[key],value];
 		return pairs.length == 1 ? params : parse(params, pairs.slice(1));
-	} return string.length == 0 ? {} : parse({}, string.split('&'));
+	} return str.length == 0 ? {} : parse({}, str.split('&'));
 }
 
-//Convert an object into a url query string:
+//Converts an object into a url query string.
 utils.toQuery = function(obj) {
 	let str = ''; if(typeof obj != 'object') return encodeURIComponent(obj);
 	for(let key in obj) {
@@ -543,9 +535,9 @@ utils.toQuery = function(obj) {
 
 //Various methods of centering objects using JavaScript.
 //obj: Object to center.
-//only: 'x' for only x axis centering, 'y' for only y axis.
-//type: 'calc', 'trans', 'move', or null for different centering methods.
-utils.centerObj = function(obj, only, type) {
+//only: 'x' for only x axis centering, 'y' for only y axis, null for both.
+//type: Use 'calc', 'trans', 'move', or null for various centering methods.
+utils.center = function(obj, only, type) {
 	if(!obj.style.position) obj.style.position = "absolute";
 	if(type == 'calc') { //Efficient, but Only Responsive for Changes in Page Size:
 		if(!only || only == "x") obj.style.left = "calc(50% - "+(obj.clientWidth/2)+"px)";
@@ -570,28 +562,52 @@ utils.centerObj = function(obj, only, type) {
 	}
 }
 
-//Loads a file at the address via HTML object tag. Callback
-//is fired with either recieved data, or 'false' if unsucessful.
+//Loads a file and returns it's contents using HTTP GET.
+//Callback parameters: (err, data)
+//err: non-zero on error. -1 if AJAX not supported, -2 if unknown error, otherwise standard HTTP error codes.
+//cType: Optional, sets content type header.
+//usePost: Set to true to use HTTP POST instead.
+//Error is -1 if AJAX not supported, -2 if unknown error.
+utils.loadAjax = function(path, callback, cType, usePost) {
+	let http; if(window.XMLHttpRequest) { //Chrome, Safari, Firefox, Edge:
+		try {http = new XMLHttpRequest()} catch(e) {callback(-1);return}
+	} else if(window.ActiveXObject) { //IE6 and older:
+		try {http = new ActiveXObject("Msxml2.XMLHTTP")} catch(e) {
+		try {http = new ActiveXObject("Microsoft.XMLHTTP")} catch(e) {callback(-1);return}}
+	} else { callback(-1); return; }
+	http.open(usePost?'POST':'GET',path,true); if(cType) http.setRequestHeader("Content-type", cType);
+	if(typeof callback == 'function') http.onreadystatechange = function(event) { //Handle state change:
+		if(event.target.readyState === XMLHttpRequest.DONE) {
+			let s = event.target.status;
+			if(s == 200) s = 0; else if(s <= 0) s = -2;
+			callback(s,event.target.response);
+		}
+	}
+	http.send();
+}
+
+//Good fallback for loadAjax. Loads a file at the address via HTML object tag.
+//Callback is fired with either received data, or 'false' if unsuccessful.
 utils.loadFile = function(path, callback, timeout) {
 	const obj = document.createElement('object'); obj.data = path;
 	obj.style.position = 'fixed'; obj.style.opacity = 0;
 	let tmr = setTimeout(function() {
-		document.body.removeChild(obj);
-		tmr = null; callback(false);
+		obj.remove(); tmr = null; callback(false);
 	}, timeout||4000);
 	obj.onload = function() {
-		const data = obj.contentDocument.documentElement.outerHTML;
-		if(tmr) clearTimeout(tmr); document.body.removeChild(obj);
-		callback(data);
+		if(!tmr) return; clearTimeout(tmr);
+		callback(obj.contentDocument.documentElement.outerHTML);
+		obj.remove();
 	}
 	document.body.appendChild(obj);
 }
 
 //Loads a file at the address from a JSONP-enabled server. Callback
-//is fired with either recieved data, or 'false' if unsucessful.
+//is fired with either received data, or 'false' if unsuccessful.
 utils.loadJSONP = function(path, callback, timeout) {
 	const script = document.createElement('script'), id = utils.firstEmptyChar(utils.lJSONCall);
-	script.type = 'application/javascript'; script.src = path+'&callback=utils.lJSONCall.'+id;
+	script.type = 'application/javascript';
+	script.src = path+(path.indexOf('?')==-1?'?':'&')+'callback=utils.lJSONCall.'+id;
 	let tmr = setTimeout(function() { delete utils.lJSONCall[id]; callback(false); }, timeout||4000);
 	utils.lJSONCall[id] = function(data) {
 		if(tmr) clearTimeout(tmr); delete utils.lJSONCall[id]; callback(data);
@@ -599,48 +615,20 @@ utils.loadJSONP = function(path, callback, timeout) {
 	document.head.appendChild(script); document.head.removeChild(script);
 }; utils.lJSONCall = [];
 
-//Loads a file and returns it's contents using HTTP GET.
-//Callback parameters: (data, err)
-//err: non-zero on error. Standard HTTP error codes.
-//queryData: Optional, object of url query data key/value pairs.
-//contentType: Optional, sets content type header.
-//Returns: false if AJAX not supported, true otherwise.
-utils.loadAjax = function(path, callback, queryData, contentType) {
-	//Obtain HTTP Object:
-	let http; if(window.XMLHttpRequest) { //Chrome, Safari, Firefox, Edge:
-		try {http = new XMLHttpRequest()} catch(e) {return e}
-	} else if(window.ActiveXObject) { //IE6 and older:
-		try {http = new ActiveXObject("Msxml2.XMLHTTP")} catch(e) {
-		try {http = new ActiveXObject("Microsoft.XMLHTTP")} catch(e) {return e}}
-	} else return false;
-	//Open & Set HTTP Headers:
-	http.open("GET", path, true);
-	if(contentType) http.setRequestHeader("Content-type", contentType);
-	http.onreadystatechange = function(event) { //Handle state change:
-		if(event.target.readyState === XMLHttpRequest.DONE) {
-			if(event.target.status == 200) callback(event.target.response, 0);
-			else callback("", event.target.status);
-		}
-	}
-	http.send(queryData?utils.toQuery(queryData):null); //Send Request
-	return true;
-}
+//Converts from radians to degrees, so you can work in degrees.
+//Function by: The a**hole who invented radians.
+utils.deg = function(rad) { return rad * 180 / Math.PI; }
 
 //Converts from degrees to radians, so you can convert back for given stupid library.
 //Function by: The a**hole who invented radians.
 utils.rad = function(deg) { return deg * Math.PI / 180; }
 
-//Converts from radians to degrees, so you can work in degrees.
-//Function by: The a**hole who invented radians.
-utils.deg = function(rad) { return rad * 180 / Math.PI; }
+//Even though this is fairly standard, I figured this formula out on my own when I was like 5, so I'm very proud of it...
 
-//I figued the following formula out on my own when I was like 5, so I'm very proud of it...
-
-//Pecacheu's ultimate unit translation formula:
+//Pecacheu's ultimate unit translation formula!
 //This Version -- Bounds Checking: NO, Rounding: NO, Max/Min Switching: NO, Easing: YES
-utils.map = function(input, minIn, maxIn, minOut, maxOut, easeFunc) {
-	if(!easeFunc) easeFunc = function(t) { return t; }
-	return (easeFunc((input-minIn)/(maxIn-minIn))*(maxOut-minOut))+minOut;
+utils.map = function(input, minIn, maxIn, minOut, maxOut, ease) {
+	let i=(input-minIn)/(maxIn-minIn); return ((ease?ease(i):i)*(maxOut-minOut))+minOut;
 }
 
 })(); //End of Utils Library

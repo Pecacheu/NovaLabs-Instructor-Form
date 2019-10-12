@@ -1,6 +1,6 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
 //Powered By: Linked JS Server v1.42, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
-const VERSION = 'v1.9';
+const VERSION = 'v2.0';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
@@ -10,7 +10,7 @@ let clients = {}, serverIP;
 
 //Config Options:
 const debug = false;
-const Port = 80, Path = "/root", ServerName = "Automated Forms Server";
+const Port = 8020, Path = "/root", ServerName = "Automated Forms Server";
 const SEND_TIMEOUT = 15000;
 
 //Filter Patterns:
