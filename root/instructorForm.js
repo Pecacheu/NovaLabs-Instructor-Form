@@ -49,7 +49,7 @@ const SEL = "<select class='field'>\
 	<option selected>---</option>\
 	<option>No Show</option>\
 	<option>No GO</option>\
-	<option>Paid at Kiosk/Other</option>\
+	<option>Paid at Kiosk</option>\
 	<option>Minor 8-11</option>\
 	<option>Minor 12-15</option>\
 	<option>Minor 16-17</option>\
