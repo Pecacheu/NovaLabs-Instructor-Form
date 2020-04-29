@@ -125,7 +125,7 @@
 		'address_1':'1916 Isaac Newton Square W','city':'Reston','country':'us','localized_country_name':'USA',
 		'zip':'20190','state':'VA'},'group':{'created':1333912341000,'name':'NOVA Makers','id':3629072,'join_mode':'open',
 		'lat':38.959999084472656,'lon':-77.33999633789062,'urlname':'NOVA-Makers','who':'Makers','localized_location':'Reston, VA',
-		'region':'en_US'},'link':'https://m.popkey.co/1edcf5/JmDbE.gif','description':desc,'how_to_find_us':'[ ]',
+		'region':'en_US'},'link':'https://cataas.com/cat/gif','description':desc,'how_to_find_us':'[]',
 		'visibility':'public','event_hosts':[{'id':51259412,'name':'Pecacheu'}]};
 		
 		const evBox = showMeetup(testEvent, '-INFINITY%', null);
@@ -136,18 +136,19 @@
 		fCount.value = fCount.num = 5; fMatCost.value = '$6.00'; fMatCost.num = 6;
 		
 		const nameList = [
-			["MLG Masta", "mlg@aol.com", 12],
-			["Not Trump", "hillary@cox.net", 34],
-			["PewDiePie", "hitler@septiceye.biz", 56],
-			["That One Guy", "thatoneguy@example.com", 78],
-			["Fakus Namecus", "fake@scpfoundation.net", 90]
+			["MLG Masta", "mlg@aol.com", 2, 12],
+			["Tony Hawk (Pro Snowboarder)", "hillary@cox.net", 1, 34],
+			["PewDiePie", "congratulations@septiceye.biz", 3, 56],
+			["Product Placement", "gonefishing@example.com", 0, 78],
+			["Fakus Namecus-Esquire III", "fake@scpfoundation.net", 11, 90]
 		];
 		
 		fCount.onblur();
 		
 		for(let i=0,l=nameList.length,row,data; i<l; i++) {
-			row = aTable.children[i+1].children; data = nameList[i]; row[0].firstChild.value = data[0];
-			row[1].firstChild.value = data[1]; row[2].firstChild.value = data[2];
+			row = aTable.children[i+1].children; data = nameList[i];
+			row[0].firstChild.value = data[0]; row[1].firstChild.value = data[1];
+			row[2].firstChild.selectedIndex = data[2]; row[3].firstChild.value = data[3];
 		}
 		
 		doCostBreakdown(); window.scrollTo(0,9999);

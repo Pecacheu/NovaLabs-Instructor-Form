@@ -1,6 +1,6 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
 //Powered By: Linked JS Server v1.42, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
-const VERSION = 'v2.0.1';
+const VERSION = 'v2.1.1';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
@@ -22,8 +22,8 @@ const msgHeader = "{ NovaLabs FormBot Automated Message }", bStyle = 'font:20px 
 noHTML = "\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.";
 
 //Email Addresses:
-const mailHost = 'formbot@nova-labs.org', accAddr = ['events@nova-labs.org'],
-memAddr = 'membership@nova-labs.org', replyAddr = 'events@nova-labs.org', TEST_MAIL = 'pecacheu@gmail.com';
+const mailHost = 'formbot@nova-labs.org', accAddr = ['formbot-events-relay@nova-labs.org'],
+memAddr = 'formbot-membership-relay@nova-labs.org', TEST_MAIL = 'pecacheu@gmail.com';
 
 //Auth Keys:
 /*const ApiKey = "0", ApiSecret = "0", RedirUri = "https://nova-labs.org",
@@ -154,7 +154,7 @@ function initSockets(host) {
 				for(let i=0,l=addrList.length; i<l; i++) {
 					const addr = addrList[i]; console.log(chalk.yellow("Sending to "+addr));
 					mail({
-						from:mailHost, to:addr, replyTo:i==l-1?replyAddr:uMail, subject:subject, text:msgHeader+noHTML,
+						from:mailHost, to:addr, subject:subject, text:msgHeader+noHTML,
 						html:"<body style='"+bStyle+"'><p><b>"+msgHeader+"</b></p>"+
 						evHTML+(i==l-1?aTable:'')+"<br>Powered by bTech.</body>",
 						attachments:[
@@ -175,7 +175,7 @@ function initSockets(host) {
 					const HTML = "<body style='"+bStyle+"'><p><b>"+msgHeader+"</b></p><p>Filled out by: "
 					+uName+" ("+uMail+")</p>"+evHTML+aTable+"<br>Powered by bTech.</body>";
 					mail({
-						from:mailHost, to:memAddr, replyTo:uMail, subject:subject, text:msgHeader+noHTML, html:HTML
+						from:mailHost, to:memAddr, subject:subject, text:msgHeader+noHTML, html:HTML
 					}, function(err, reply) {
 						if(err && err.message != 'read ECONNRESET') {
 							cancel(); ack(self,event,"Failed to send to "+memAddr+": "+err.message); self.cliErr(err); return;

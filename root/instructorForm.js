@@ -219,9 +219,11 @@ function showMeetup(event, accuracy, err) {
 	ven = utils.mkEl('a', info, 'muVen'), loc = utils.mkDiv(info, 'muSub'), desc = utils.mkDiv(info, 'muDesc');
 	title.href = event.link; title.target = '_blank'; title.textContent = event.name;
 	ven.textContent = event.venue.name; ven.href = event.link; ven.target = '_blank';
-	let addr = event.venue.address_1, asub = addr.substr(0,10);
-	if(asub == '1916 Isaac' || asub == '1916 Issac') addr = "NovaLabs";
-	loc.textContent = addr+", "+event.venue.city+", "+(event.venue.state||event.venue.country);
+	if(event.venue.address_1) {
+		let addr = event.venue.address_1, asub = addr.substr(0,10);
+		if(asub == '1916 Isaac' || asub == '1916 Issac') addr = "NovaLabs";
+		loc.textContent = addr+", "+event.venue.city+", "+(event.venue.state||event.venue.country);
+	}
 	desc.innerHTML = event.description; desc.textContent = desc.textContent; //Strip HTML.
 	//Event meta:
 	const yesCount = event.yes_rsvp_count-event.event_hosts.length;
