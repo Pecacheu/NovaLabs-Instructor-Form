@@ -91,7 +91,7 @@ function doCostBreakdown() { if(!pdfSubmit) {
 		const r = charge*sNum, p = utils.formatCost(r-mats), t = (r-mats)*((100-rate)/100)+mats;
 		text = "Class Profit: "+utils.formatCost(charge)+" Charge x "+sNum+" Students - "+utils.formatCost(mats)+" Materials = "+p
 		+"\nTotal Reimbursement: "+p+" - "+rate+"% Rate + Materials = "+utils.formatCost(t);
-		if(r-t <= 0) {
+		if(r-t <= 0 && fType.value != 'min') {
 			text += "\nWarning: NovaLabs makes "+utils.formatCost(r-t)+"! Please ensure you've coordinated this with the board!";
 			color = 'rgba(200,160,0,0.8)';
 		} else if(mats >= t) {
@@ -173,8 +173,11 @@ function initLayout() {
 	}
 	//Update cost breakdown system on membership-type change:
 	fType.onchange = function() {
-		const v = this.value; fRate.par.hidden = (v != 'cus'); r = 30;
-		fRateInfo.textContent = (v=='cus'?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
+		const v = this.value, vc = (v == 'cus'), vm = (v == 'min'); let r=30;
+		fRate.par.hidden = !vc; fCount.par.hidden = fMatCost.par.hidden = vm;
+		fCostText.textContent = vm?'Payment':'Cost/Student';
+		if(vm) { fCount.set(1); fMatCost.set(0); r=0; }
+		fRateInfo.textContent = (vc?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
 	}
 	//Add onupdate & onfocus functions to fields:
 	const fields = document.getElementsByClassName('field');
@@ -271,9 +274,10 @@ function doPreview() {
 	if(!charge || charge < 15) return "Cost Per Student";
 	if(!sNum || sNum < 0) return "Students Count";
 	if(!(mats >= 0)) return "Material Cost is undefined!?";
-	if(!rate || rate < 0) return "NovaLabs Rate";
+	if(rate < 0 || rate > 100) return "NovaLabs Rate";
 	if(!pm || typeof pm != 'string') return "Payment Type is undefined!?";
-	const aNodes=aTable.children; if(aNodes.length !== sNum+1) return "Attendee List size must equal Student Count";
+	const aNodes=aTable.children;
+	if(aNodes.length !== sNum+1 && fType.value != 'min') return "Attendee List size must equal Student Count";
 	//Read Attendee List:
 	const sList=[]; for(let i=1,l=aNodes.length,sub,n,r,u; i<l; i++) {
 		sub = aNodes[i].children; if(sub.length !== 4) return "Attendee List, Child "+i+": Column count must be 4!";
