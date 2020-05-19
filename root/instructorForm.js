@@ -348,6 +348,8 @@ function genPDF(className, date, iName, email, charge, sNum, mats, rate, payment
 	multiColor(10.8,cSub,"( Revenue - ",cData,total,cSub," = ",
 	cMain,utils.formatCost(r-t)+" NovaLabs Profit",cSub," )");
 	
+	if(fType.value == 'min') multiColor(5.9,cSub,selBoxValue(fType));
+	
 	//Attendee List:
 	if(sList && sList.length) {
 		pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
