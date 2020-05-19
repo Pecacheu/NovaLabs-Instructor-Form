@@ -1,6 +1,6 @@
 //This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
 //Powered By: Linked JS Server v1.42, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
-const VERSION = 'v2.1.1';
+const VERSION = 'v2.2';
 
 const router = require('./router'), http = require('http'), url = require('url'),
 chalk = require('chalk'), socketio = require('socket.io'), mail = require('sendmail')({silent:true});
@@ -129,8 +129,8 @@ function initSockets(host) {
 				if(data.length > 20000) { ack(this,event,"Data exceeded maximum length (20000)"); return; }
 				if(typeof dataType != 'string' || dataType.length !== 3) { ack(this,event,"Invalid data type!"); return; }
 				if(eventMatch && typeof eventMatch != 'object') { ack(this,event,"Bad input: eventMatch"); return; }
-				if(!Array.isArray(aList) || !aList.length || aList.length > 200) { ack(this,event,"Bad input: attendeeList"); return; }
-				if(typeof isSignOff != 'number' || isSignOff < 0) { ack(this,event,"Bad input: isSignOff"); return; }
+				if(!Array.isArray(aList) || aList.length > 200) { ack(this,event,"Bad input: attendeeList"); return; }
+				if(!(isSignOff >= 0) || isSignOff && !aList.length) { ack(this,event,"Bad input: isSignOff"); return; }
 				//Attendee List Error Checking:
 				for(let i=0,a,err=false,l=aList.length; i<l; i++) {
 					a=aList[i]; if(a.length !== 3) err = "Invalid Length";
