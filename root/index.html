@@ -1,69 +1,49 @@
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
-<style>
-/* Font Faces */
-@font-face {
-	font-family:'Roboto'; font-style:normal; font-weight:100;
-	src:local('Roboto Thin'), local('Roboto-Thin'),
-	url(resources/type/RobotoThin.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Roboto'; font-style:normal; font-weight:300;
-	src:local('Roboto Light'), local('Roboto-Light'),
-	url(resources/type/RobotoLight.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Roboto'; font-style:normal; font-weight:400;
-	src:local('Roboto'), local('Roboto-Regular'),
-	url(resources/type/RobotoReg.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Roboto'; font-style:normal; font-weight:500;
-	src:local('Roboto Medium'), local('Roboto-Medium'),
-	url(resources/type/RobotoMid.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Ubuntu Titling';
-	src:url(resources/type/UbuntuTitling-Bold.woff) format('woff');
-}
-@font-face {
-	font-family:'Khmer UI'; font-style:normal;
-	src:url(resources/type/KhmerUI.ttf) format('truetype');
-}
-@font-face {
-	font-family:'Khmer UI'; font-style:oblique;
-	src:url(resources/type/KhmerUI-Bold.ttf) format('truetype');
-}
-@font-face {
-	font-family:'Open Sans'; font-style:normal; font-weight:300;
-	src:local('Open Sans Light'), local('OpenSans-Light'),
-	url(resources/type/OpenSansLight.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Open Sans'; font-style:normal; font-weight:400;
-	src:local('Open Sans'), local('OpenSans'),
-	url(resources/type/OpenSansReg.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Open Sans'; font-style:normal; font-weight:600;
-	src:local('Open Sans Semibold'), local('OpenSans-Semibold'),
-	url(resources/type/OpenSansSemiBold.woff2) format('woff2');
-}
-@font-face {
-	font-family:'Open Sans'; font-style:normal; font-weight:700;
-	src:local('Open Sans Bold'), local('OpenSans-Bold'),
-	url(resources/type/OpenSansBold.woff2) format('woff2');
-}
-
-/* Styles */
-h1 { text-align:center; font:32pt 'Ubuntu Titling',Arial; }
-h6 { font-size:12pt; margin:0.5em 6px; font-weight:600; }
-</style>
-<body style="font:16pt 'Open Sans',Arial;background:lightGray">
-	<h1>PETENET_FF2 Server</h1>
-	<br><h2>This Server Hosts:</h2>
-	<p>- FormBot Server<br>- ForestFire Offsite Backup Server
-	<br>- Dynamic Load Balance<br>- Node.js Host</p>
-	<br><h2>Server Links:</h2>
-	<p><a href="/instructorForm">Instructor Auto-Form</a></p>
-	<p><a href="http://forestfiremc.net">ForestFire Minecraft Server</a></p>
-</body>
+<!-- Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0 -->
+<html><head>
+	<title>Instructor Reimbursement Form</title>
+	<!-- Configure Mobile Scaling -->
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
+	<!-- Libraries -->
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="resources/jspdf.min.js"></script>
+	<script src="resources/utils.min.js"></script>
+	<!-- Scripts -->
+	<link rel="stylesheet" type="text/css" href="formStyle.css">
+	<script src="form.js"></script>
+</head><body>
+	<div id="statusBg"><div id="statusText">Loading...</div></div>
+	<canvas id="bgBox"></canvas>
+	<div id="contentBox">
+		<h1 id="header" style="text-align:center">Loading Page</h1>
+		<h4>Class Info</h4>
+		<p>Class Name: <input id="fTitle" class="field" type="text" charPattern="[\w\-: ]" value="Example Class"></p>
+		<p>Class Date: <input id="fDate" class="field" type="datetime-local"></p>
+		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w ]"></p>
+		<p><span id="pem">PayPal Email</span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"></p>
+		<h4 id="muHeader" hidden>This Event Is Probably:</h4><p id="muMatch"></p>
+		<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
+		<p>Payment: <select id="fPay" class="field">
+			<option value="pap">PayPal</option>
+			<option value="kep">Credit My Account</option>
+			<option value="don">Donate To NovaLabs</option>
+			<option value="chk">Check (Approval Required)</option>
+		</select></p>
+		<h4>Cost Breakdown</h4>
+		<p>Class Type: <select id="fType" class="field">
+			<option selected disabled value="">Select One</option>
+			<option value="mkr">Project (No Sign-Off)</option>
+			<option value="sgn">Tool Sign-Off</option>
+			<option value="ssn">Safety Sign-Off - Supervised Access</option>
+			<option value="cus">Negotiated Rate</option>
+		</select></p>
+		<p><span id="fCostText">Cost/Student</span>: <input id="fCost" class="field"></p>
+		<p>Students: <input id="fCount" class="field"></p>
+		<p>Materials: <input id="fMatCost" class="field"> (Direct expenses for this class)</p>
+		<p hidden>NovaLabs Rate: <input id="fRate" class="field"></p>
+		<h6 id="fRateInfo">30% NovaLabs Rate</h6>
+		<button id="sButton" style="margin:1em 0">Preview Summary</button>
+		<p id="infoBox"></p>
+		<h4>Attendee List (For Sign-Off/Orientation Classes)</h4>
+		<table><tbody id="aTable"><tr><th>Name</th><th>User ID</th><th>Notes</th><th>Payment</th></tr></tbody></table>
+	</div>
+</body></html>
