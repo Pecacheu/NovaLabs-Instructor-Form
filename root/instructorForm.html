@@ -1,27 +1,25 @@
-<!-- Instructor Form, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com) -->
-<html>
-	<head>
-		<title>Instructor Reimbursement Form</title>
-		<!-- Configure Mobile Scaling -->
-		<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
-		<!-- Libraries -->
-		<script src="/socket.io/socket.io.js"></script>
-		<script src="resources/jspdf.min.js"></script>
-		<script src="resources/utils.js"></script>
-		<!-- Scripts -->
-		<script src="instructorForm.js"></script>
-		<link rel="stylesheet" type="text/css" href="formStyle.css">
-	</head>
-	<body>
-	<div id="statusBg"><div id="statusText">Loading Page...</div></div>
-	<div id="bgOverlay"></div>
+<!-- Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0 -->
+<html><head>
+	<title>Instructor Reimbursement Form</title>
+	<!-- Configure Mobile Scaling -->
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
+	<!-- Libraries -->
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="resources/jspdf.min.js"></script>
+	<script src="resources/utils.min.js"></script>
+	<!-- Scripts -->
+	<link rel="stylesheet" type="text/css" href="formStyle.css">
+	<script src="instructorForm.js"></script>
+</head><body>
+	<div id="statusBg"><div id="statusText">Loading...</div></div>
+	<canvas id="bgBox"></canvas>
 	<div id="contentBox">
-		<h1 id="header" align="center">Loading Page</h1>
+		<h1 id="header" style="text-align:center">Loading Page</h1>
 		<h4>Class Info</h4>
-		<p>Class Name: <input id="fTitle" class="field" type="text" charPattern="[\w\-: ]" value="Example Class"/></p>
-		<p>Class Date: <input id="fDate" class="field" type="datetime-local"/></p>
-		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w ]"/></p>
-		<p><span id="pem">PayPal Email</span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"/></p>
+		<p>Class Name: <input id="fTitle" class="field" type="text" charPattern="[\w\-: ]" value="Example Class"></p>
+		<p>Class Date: <input id="fDate" class="field" type="datetime-local"></p>
+		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w ]"></p>
+		<p><span id="pem">PayPal Email</span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"></p>
 		<h4 id="muHeader" hidden>This Event Is Probably:</h4><p id="muMatch"></p>
 		<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
 		<p>Payment: <select id="fPay" class="field">
@@ -33,134 +31,19 @@
 		<h4>Cost Breakdown</h4>
 		<p>Class Type: <select id="fType" class="field">
 			<option selected disabled value="">Select One</option>
-			<option value="mkr">Maker Class</option>
-			<option value="sgn">Tool Sign-Off Class</option>
-			<option value="ssn">Safety Sign-Off Class</option>
-			<option value="cus">Custom Rate</option>
-			<option value="min">Minimum Incentive Payment</option>
+			<option value="mkr">Project (No Sign-Off)</option>
+			<option value="sgn">Tool Sign-Off</option>
+			<option value="ssn">Safety Sign-Off - Supervised Access</option>
+			<option value="cus">Negotiated Rate</option>
 		</select></p>
-		<p><span id="fCostText">Cost/Student</span>: <input id="fCost" class="field"/></p>
-		<p>Students: <input id="fCount" class="field"/></p>
-		<p>Materials: <input id="fMatCost" class="field"/> (Expenses purchased by instructor for class)</p>
-		<p hidden>NovaLabs Rate: <input id="fRate" class="field"/></p>
+		<p><span id="fCostText">Cost/Student</span>: <input id="fCost" class="field"></p>
+		<p>Students: <input id="fCount" class="field"></p>
+		<p>Materials: <input id="fMatCost" class="field"> (Direct expenses for this class)</p>
+		<p hidden>NovaLabs Rate: <input id="fRate" class="field"></p>
 		<h6 id="fRateInfo">30% NovaLabs Rate</h6>
 		<button id="sButton" style="margin:1em 0">Preview Summary</button>
 		<p id="infoBox"></p>
 		<h4>Attendee List (For Sign-Off/Orientation Classes)</h4>
-		<table><tbody id="aTable"><tr><th>Name</th><th>Email</th><th>Notes</th><th>Meetup ID</th></tr></tbody></table>
+		<table><tbody id="aTable"><tr><th>Name</th><th>User ID</th><th>Notes</th><th>Payment</th></tr></tbody></table>
 	</div>
-	<script>
-	let socket = {}, statMsg = false; initBg();
-	
-	//LINKJS Socket Init:
-	function ioInit(type, connect, disconnect, index) {
-		socket = io.connect();
-		function ioReset() {
-			socket.removeAllListeners(); socket.index = null;
-			socket.on('type', function() {socket.emit('type',type)}); //Send client type.
-			socket.on('connection', function(id) { //Handle Connections:
-				socket.index = id;
-				socket.on('disconnect', function() { if(disconnect) disconnect(); ioReset(); });
-				socket.on('index', function(id) { socket.index = id; if(index) index(id); });
-				connect(id);
-			});
-		}
-		ioReset();
-	}
-	
-	//Window Load:
-	window.onload = function() {
-		initLayout(); statusMsg("Connecting...");
-
-		//Check for backdrop filter support:
-		const ds = document.body.style; supportsBdf = typeof ds.backdropFilter != 'undefined' ||
-		typeof ds.webkitBackdropFilter != 'undefined' || typeof ds.mozBackdropFilter != 'undefined';
-
-		//Init Socket.io:
-		ioInit('form', function(id) { //Connect:
-			console.log("Connected!"); statusMsg(); //authCheck();
-			socket.on('ack', function(event, status, err) {
-				console.warn("ACK "+(status?'true':'false')+": "+event+(err?", '"+err+"'":''));
-				if(!status) { //Show server-side errors:
-					showInfo("Server Error: '"+(err||'{UNKNOWN}')+"'");
-					if(event == 'sendForm') { //Un-hide submit button on submit error:
-						const ss = sButton.style; ss.display = null;
-						ss.opacity = 1; pdfSubmit = false;
-					}
-				} else if(event == 'sendForm') {
-					showInfo("Form submitted successfully.", 'rgba(0,150,20,0.8)');
-					pdfSubmit = false;
-				}
-			});
-			window.onresize = onResize;
-		}, function() { //Disconnect:
-			statusMsg("Connection To Server Lost!"); window.onresize = null;
-			const ss = sButton.style; ss.opacity = 1; ss.display = null;
-			pdfSubmit = false;
-		});
-	}
-	
-	//Full-screen status message:
-	function statusMsg(msg) {
-		statusText.textContent = msg||null; statusBg.hidden = !msg;
-		contentBox.hidden = statMsg = !!msg;
-	}
-	
-	//PDF Generator Example:
-	function testRun() {
-		FORM_TYPE = FORM_TYPE.replace('Form','Test'); header.textContent = FORM_TYPE;
-		
-		fTitle.value = "How To Do The Things 102"; fDate.value = '1994-03-21T16:20';
-		fName.value = 'Brian Putersens'; fMail.value = 'liamg@gmail.com'; fPay.value = 'pap';
-		
-		const desc = "This is a NovaLabs Meetup event which teaches individuals how to do the stuff and things. This is"
-		+" an introductory class, so please no advanced students. Also, no children ages 12 or below, and no adults 25"
-		+" or up. We won't be accepting teenagers either, so please leave your teens at home parents! In fact, we may"
-		+" not be taking any humans at all. If you are or know a human, this is not the class for you. You know what, just"
-		+" life in general really is not welcome... But other than that, be sure to come and bring your kids! PS: Sorry"
-		+" for the awful dead meme.";
-		
-		const time = fDate.valueAsNumber+14400000, testEvent = {'created':time,'id':'kys','name':fTitle.value,
-		'status':'upcoming','time':time,'updated':time,'utc_offset':-14400000,'waitlist_count':999,'yes_rsvp_count':-4,
-		'venue':{'id':9999,'name':'*Nova Labs (Classroom B)','lat':38.954105377197266,'lon':-77.33885955810547,
-		'address_1':'1916 Isaac Newton Square W','city':'Reston','country':'us','localized_country_name':'USA',
-		'zip':'20190','state':'VA'},'group':{'created':1333912341000,'name':'NOVA Makers','id':3629072,'join_mode':'open',
-		'lat':38.959999084472656,'lon':-77.33999633789062,'urlname':'NOVA-Makers','who':'Makers','localized_location':'Reston, VA',
-		'region':'en_US'},'link':'https://cataas.com/cat/gif','description':desc,'how_to_find_us':'[]',
-		'visibility':'public','event_hosts':[{'id':51259412,'name':'Pecacheu'}]};
-		
-		const evBox = showMeetup(testEvent, '-INFINITY%', null);
-		if(muMatch.firstChild) muMatch.firstChild.replaceWith(evBox); else muMatch.appendChild(evBox);
-		muHeader.hidden = muReject.hidden = false;
-		
-		fType.value = 'sgn'; fCost.value = '$69.00'; fCost.num = 69.00;
-		fCount.value = fCount.num = 5; fMatCost.value = '$6.00'; fMatCost.num = 6;
-		
-		const nameList = [
-			["MLG Masta", "mlg@aol.com", 2, 12],
-			["Tony Hawk (Pro Snowboarder)", "hillary@cox.net", 1, 34],
-			["PewDiePie", "congratulations@septiceye.biz", 3, 56],
-			["Product Placement", "gonefishing@example.com", 0, 78],
-			["Fakus Namecus-Esquire III", "fake@scpfoundation.net", 11, 90]
-		];
-		
-		fCount.onblur();
-		
-		for(let i=0,l=nameList.length,row,data; i<l; i++) {
-			row = aTable.children[i+1].children; data = nameList[i];
-			row[0].firstChild.value = data[0]; row[1].firstChild.value = data[1];
-			row[2].firstChild.selectedIndex = data[2]; row[3].firstChild.value = data[3];
-		}
-		
-		doCostBreakdown(); window.scrollTo(0,9999);
-		
-		return "EXECUTING TEST...";
-	}
-	
-	Object.defineProperty(window, 'test', {get:testRun});
-	
-	//Animated Background Resize:
-	function onResize() { makeTiles(); }
-	</script>
-	</body>
-</html>
+</body></html>

@@ -1,5 +1,4 @@
-/* This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details. */
-/* Instructor Form, Copyright (©) 2017 Bryce Peterson (Nickname: Pecacheu, Email: Pecacheu@gmail.com) */
+/* Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0 */
 
 /* Styles */
 body { background:black; margin:0; }
@@ -18,22 +17,11 @@ button:active { background:#dcdcdc; color:#000; }
 	/*-webkit-appearance:none; -moz-appearance:none; appearance:none;*/
 }
 .field option:disabled { color:#ccc; }
-.fieldSub {
-	width:250px; height:24px; background:#f5f5f5; color:#888; border:none; vertical-align:middle;
-	text-overflow:ellipsis; font-size:16px; margin:0; padding:0; display:inline-block; position:relative;
-}
-.arrow {
-	width:0; height:0; display:inline-block;
-	float:right; top:38%; position:relative;
-	border-left:3px solid transparent;
-	border-right:3px solid transparent;
-	border-top:6px solid #888;
-	vertical-align:middle;
-}
 input[type=email] { color:#5299e2; }
 
 /* Content */
 #statusBg { background:grey; width:100%; height:100%; position:fixed; z-index:999; }
+#bgBox { position:fixed; z-index:-1; }
 #statusText {
 	position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
 	color:white; font:300 50px 'Open Sans'; text-align:center;
@@ -42,21 +30,16 @@ input[type=email] { color:#5299e2; }
 	position:absolute; left:50%; transform:translateX(-50%);
 	font:16pt 'Open Sans'; padding:10px; box-sizing:border-box; width:80%;
 	background:rgba(240,235,230,0.8); box-shadow:0 0 10px black;
-	backdrop-filter:blur(8px);
-	-webkit-backdrop-filter:blur(8px);
-	-moz-backdrop-filter:blur(8px);
 }
 #infoBox {
-	color:white; padding:0 6px; margin-top:0; border-radius:5px;
-	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-weight:100;
-	white-space:pre-line; /* Breaks on newline in textContent. */
-	backdrop-filter:blur(8px);
-	-webkit-backdrop-filter:blur(8px);
+	color:white; white-space:pre-line; margin-top:0; border-radius:5px;
+	padding:0 6px; box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-weight:100;
+	backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 	-moz-backdrop-filter:blur(8px);
 }
-#bgOverlay {
-	width:100%; height:100%; position:fixed; opacity:0.7;
-	background:radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, #000 80%);
+.pdf {
+	position:fixed; width:100%; height:100%;
+	display:flex; flex-flow:column;
 }
 .pdfExit {
 	padding:10; font:16pt 'Open Sans'; text-align:center;
