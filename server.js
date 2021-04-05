@@ -1,5 +1,5 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.0';
+const VERSION='v3.0.4';
 
 'use strict';
 const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('sendmail')({silent:true}), stripHtml=require('string-strip-html').stripHtml;
@@ -23,7 +23,7 @@ const MailHost='formbot@nova-labs.org', AccAddr=['formbot-events-relay@nova-labs
 MemAddr='formbot-membership-relay@nova-labs.org';
 
 //Auth Keys:
-const ApiKey="{ >>> FILL IN API KEY HERE <<< }", AuthUri="https://oauth.wildapricot.org/auth/token",
+const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
 ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
 
 //Entry Point:
@@ -78,11 +78,11 @@ function getEvent(sk,ev) {
 					u=getEvUser(dr[i]); if(u.h) evm.hosts.push(u); else evm.rsvp.push(u);
 				}
 				evm.yes -= evm.hosts.length;
-				if(!evm.hosts.length) throw "No Instructor Listed";
+				if(!evm.hosts.length) evm.hosts.push({name:"???",email:''});
 				evm.raw=[d,dr]; //<------- TEST
-				ack(sk,EV,(sk.evm=evm));
+				console.log("Got Event "+ev); ack(sk,EV,(sk.evm=evm));
 			} catch(e2) {e=e2}
-			EvLoad=0; if(e) ack(sk,EV,e.toString());
+			EvLoad=0; if(e) ack(sk,EV,ev+': '+e.toString());
 		});
 	});
 }
@@ -105,7 +105,7 @@ function httpsReq(uri, mt, hdr, cb, rb) {
 	if(rb) rq.write(rb); rq.end();
 	function rEnd(e) {
 		if(rq.ee) return; if(e) rq.destroy(); rq.ee=1; if(tt) clearTimeout(tt);
-		if(!e && re.statusCode != 200) e=Error("Code "+re.statusCode+" "+dat); cb(e,dat);
+		if(!e && re.statusCode != 200) e=Error("Code "+re.statusCode+(dat?" "+dat:'')); cb(e,dat);
 	}
 }
 
@@ -139,18 +139,17 @@ function startServer() {
 
 function initSockets(host) {
 	sio(host).on('connection', sock => {
-		console.log(chalk.cyan("[SOCKET] Establishing client connection..."));
+		console.log(chalk.cyan("[SOCKET] Establishing connection..."));
 		//Handle premature disconnection:
 		sock.on('disconnect', () => {
 			sock.removeAllListeners();
-			console.log(chalk.red("[SOCKET] Client disconnected prematurely!"));
+			console.log(chalk.red("[SOCKET] Connection dropped!"));
 		});
 		//Initial connection event:
-		sock.once('type', function(sType) {
-			if(tyS(sType) && tyN(sType)) return console.log(chalk.red("[SOCKET] Bad response: initType"));
-
-			this.type = sType; if(!Cli[sType]) Cli[sType] = []; this.ind = Cli[sType].length; Cli[sType].push(this);
-			console.log(chalk.yellow("[SOCKET] Client connected! {type="+this.type+",id="+this.ind+"}"));
+		sock.once('type', function(cType) {
+			if(tyS(cType) && tyN(cType)) return console.log(chalk.red("[SOCKET] Bad response: initType"));
+			this.type=cType; if(!Cli[cType]) Cli[cType]=[]; this.ind=Cli[cType].length; Cli[cType].push(this);
+			console.log(chalk.yellow("[SOCKET] New client",this.handshake.address,"{type="+this.type+",id="+this.ind+"}"));
 
 			if(Debug) console.log("clientList:",logClientList());
 			this.cliLog = (clr, msg) => {console.log(chalk[clr]("[SOCKET "+this.type+":"+this.ind+"] "+msg))}
@@ -197,7 +196,7 @@ function initSockets(host) {
 				function cancel() { if(t) clearTimeout(t),t=0; }
 
 				//Embedded Event:
-				let sb=(uMail=='test@example.com'?"<<FORMBOT_"+VERSION+"_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(this.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>Note:</b> Safety Sign-Off Only. Do not sign off on individual tools.</p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
+				let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(this.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
 				if(tyS(ev)) return ack(this,EV,"Error generating event data: "+ev[0]);
 
 				//Send Emails:
@@ -206,7 +205,7 @@ function initSockets(host) {
 				for(let i in al) {
 					let a=al[i]; console.log("-",chalk.yellow(a));
 					mail({
-						from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Powered by bTech.</body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf']||'text/plain', content:data}]
+						from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf']||'text/plain', content:data}]
 					}, (e,re) => {
 						if(e && e.message != 'read ECONNRESET') {
 							cancel(); ack(this,EV,"Failed to send to "+a+": "+e.message); return this.cliErr(e);
@@ -242,8 +241,8 @@ function genTable(tb) {
 		"<td style='"+tdStyle+';'+mailStyle+"'>"+a[1]+"</td><td style='"+tdStyle+';'+userStyle+"'>"+a[2]+"</td></tr>";
 	}
 	for(let i=0,l=tb.length; i<l; i++) makeRow(tb[i],i);
-	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+"'><th style='width:40%'>Name"+
-	"</th><th>Email</th><th>User ID</th></tr>"+lh+"</table>";
+	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+
+	"'><th style='width:40%'>Name</th><th>User ID</th><th>Payment</th></tr>"+lh+"</table>";
 }
 
 const muEvent='width:550px;overflow:hidden;font-size:16px;border-radius:8px;padding:16px;border:1px solid rgba(0,0,0,0.12);background:#fafafa;box-shadow:2px 2px 2px rgba(0,0,0,0.3); color:rgba(0,0,0,0.87)', muLink='color:inherit;display:inline-block;text-decoration:none;vertical-align:bottom;', muTitle='font-size:16pt;font-weight:600;white-space:pre-line', muDetail='margin-top:6px;width:70%;float:left', muVen='color:rgb(0,154,227)', muSub='color:rgba(0,0,0,0.54);font-size:13px', muDesc='margin-top:6px;line-height:1.35em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;height:84px;overflow:hidden', muMeta='margin-top:8px;float:right', muRSVP='margin-top:6px;font-size:13.5px', muHosts='margin-top:6px;display:inline-block;width:100%;color:rgba(0,0,0,0.54);font-size:13px';

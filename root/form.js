@@ -1,7 +1,7 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
 
 'use strict';
-let FormType="Instructor Reimbursement Form";
+let FormType="Instructor Formbot";
 let DB, DS, BDF, Socket={}, StatMsg, PdfData, PdfSub, EvData;
 
 //---------------------------------------- Background Animation ----------------------------------------
@@ -86,7 +86,7 @@ function ioInit(t, con, dCon, idx) {
 		Socket.on('connection', (id,ver) => {
 			Socket.on('disconnect', () => { if(dCon) dCon(); ioReset(); });
 			Socket.on('id', id => { Socket.id=id; if(idx) idx(id); });
-			console.log("Connected",ver);
+			console.log("Connected",vId.textContent=ver);
 			con(Socket.id=id);
 		});
 	}
@@ -127,8 +127,8 @@ function initLayout() {
 	}
 	//Form Interaction:
 	fPay.onchange = () => {
-		if(fPay.value == 'pap') pem.textContent = "PayPal Email";
-		else pem.textContent = "Email";
+		pem.textContent = (fPay.value=='pap'?"PayPal ":'')+"Email";
+		fDon.parentNode.hidden = (fPay.value!='don');
 	}
 	fCost.onnuminput = () => {
 		let v=fCost.num, a=aTable.children;
@@ -152,15 +152,6 @@ function initLayout() {
 		fCostText.textContent = vm?'Payment':'Cost/Student';
 		if(vm) { fCount.set(1); fMatCost.set(0); r=0; }
 		fRateInfo.textContent = (vc?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
-	}
-	//Preview/Submit button press:
-	sButton.onclick = function() {
-		if(!pdfData) { //Preview.
-			const err = doPreview(); if(typeof err == 'string') { showInfo("Form Error: "+err); return; }
-			//const ign = err?" (Ignored Attendee List due to missing values.)":'';
-			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,0.8)');
-			sButton.textContent = "Submit PDF";
-		} else doSubmit(); //Submit.
 	}*/
 	//Event Autofill:
 	fTitle.oninput = () => {
@@ -168,14 +159,14 @@ function initLayout() {
 	}
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
-		muHeader.hidden=muReject.hidden=muApply.hidden=1; EvData=null;
+		muReject.hidden=muApply.hidden=1; EvData=null;
 	}
 	muApply.onclick = () => {
 		if(!EvData) return;
 		fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
 		let h=EvData.hosts[0]; fName.value=h.name, fMail.value=h.email;
-		fCost.set(EvData.fRaw); fCount.set(EvData.yes); fCount.onblur();
-		let r=EvData.rsvp, a=aTable.children;
+		fAdc.selectedIndex=0; fCost.set(EvData.fRaw); fCount.set(EvData.yes);
+		fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
 		if(r.length != a.length-1) return showInfo("Error: RSVP Mismatch");
 		for(let i=1,l=a.length,u,s; i<l; i++) {
 			u=r[i-1],s=a[i].children; s[0].firstChild.value=u.name,
@@ -186,9 +177,9 @@ function initLayout() {
 	sButton.onclick = () => {
 		if(PdfSub) return;
 		if(PdfData) { //Submit:
-			showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
-			Socket.emit('sendForm', fTitle.value, utils.formatDate(utils.fromDateTimeBox(fDate)),
-				fName.value, fMail.value, PdfData, aTable.sl, fType.value=='sgn'?1:fType.value=='ssn'?2:0);
+			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
+			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.fromDateTimeBox(fDate)),
+				fName.value, fMail.value, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
 			//Fade out submit button:
 			let ss=sButton.style; ss.transition='opacity 0.5s ease-out', ss.opacity=0;
 			setTimeout(() => { if(!ss.opacity) ss.display='none'; }, 550);
@@ -251,7 +242,7 @@ function genEvent(ev,e) {
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
 	hl.innerHTML=hc; fTitle.value=ev.name;
 	fDate.value=utils.toDateTimeBox(ev.d);
-	muHeader.hidden=muApply.hidden=0;
+	muApply.hidden=0;
 }
 
 /*//Show current fee total:
@@ -282,12 +273,14 @@ const cTitle='#111133', cMain='#405555', cData='#8888aa',
 cSub='#c05545', cMail='#0065ee', xOff=0.2;
 
 function genPdf() {
-	let fT=fTitle.value, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
-	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fC=fCost.num,
+	fTitle.n = fTitle.value+(fAdc.value?" ADHOC":'');
+	let fT=fTitle.n, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
+	fN=fName.value, fP=selBoxValue(fPay), fF=fDon.value, fM=fMail.value, fC=fCost.num,
 	fY=fType.value, fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
 
 	//Error checking:
 	if(!fP || typeof fP != 'string') return "Payment Type";
+	if(fPay.value == 'don' && !fF) return "Donation To";
 	if(!fT) return "Class Name"; if(!fDate.value) return "Class Date";
 	if(!fN) return "Instructor Name"; if(!fM) return "Instructor Email";
 	if(!fY) return "Class Type"; if(!fC || fC<15) return "Cost Per Student";
@@ -320,7 +313,8 @@ function genPdf() {
 	pdf.setFontSize(40); pdf.setTextColor(cTitle);
 	pdf.text(8.5/2,0.7,FormType,null,null,'center');
 	pdfLine(1.5,'Class Name',fT); pdfLine(2,'Date',fD);
-	pdfLine(3,'Instructor',fN,'#000000'); pdfLine(3.5,'Payment',fP);
+	pdfLine(3,'Instructor',fN,'#000000');
+	pdfLine(3.5,'Payment',fF?"Donation ("+fF+")":fP);
 	pdfLine(4,'Email',fM,cMail);
 
 	//Cost Breakdown:
@@ -391,7 +385,7 @@ window.test = function() {
 		{name:"Fakus Namecus-Esquire III",id:7080,fee:69,ti:0},
 	];
 
-	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fType.value='sgn';
+	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fPay.onchange(); fType.value='sgn';
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
 	window.scrollTo(0,9999); return "EXECUTING TEST...";
 }

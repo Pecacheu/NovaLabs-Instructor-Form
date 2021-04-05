@@ -1,10 +1,15 @@
 /* Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0 */
 
+#home { position:absolute; top:15; left:20; font-weight:600; color:#000; text-decoration:none; }
+#home:hover { text-decoration:underline; }
+
 /* Styles */
 body { background:black; margin:0; }
-h1 { margin-top:0; font-family:"Ubuntu Titling"; }
+h1 { margin:0; font-family:"Ubuntu Titling"; text-align:center; }
+h5 { text-align:center; margin-top:0; font-size:14pt; font-weight:500; }
 h4 { margin:0.5em 0; } p { margin:0.5em 0; }
 h6 { font-size:12pt; margin:0.5em 6px; font-weight:600; }
+a { color:#44f; }
 button {
 	height:24px; border-radius:50vh; background:#f5f5f5; color:#888; border:none;
 	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-size:16px; padding:0 8px;
