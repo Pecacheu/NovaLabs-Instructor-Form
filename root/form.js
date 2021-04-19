@@ -2,7 +2,7 @@
 
 'use strict';
 let FormType="Instructor Formbot";
-let DB, DS, BDF, Socket={}, StatMsg, PdfData, PdfSub, EvData;
+let DB, DS, BDF, Socket={}, Pwd, StatMsg, PdfData, PdfSub, EvData;
 
 //---------------------------------------- Background Animation ----------------------------------------
 
@@ -82,7 +82,11 @@ function ioInit(t, con, dCon, idx) {
 	Socket=io.connect(); ioReset();
 	function ioReset() {
 		Socket.removeAllListeners(); Socket.id=null;
-		Socket.on('type', () => {Socket.emit('type',t)});
+		Socket.on('type', () => {Socket.emit('type',t,Pwd)});
+		Socket.on('badPwd', () => {
+			statusMsg("Bad Password");
+			setTimeout(() => {location.reload()}, 1000);
+		});
 		Socket.on('connection', (id,ver) => {
 			Socket.on('disconnect', () => { if(dCon) dCon(); ioReset(); });
 			Socket.on('id', id => { Socket.id=id; if(idx) idx(id); });
@@ -93,6 +97,12 @@ function ioInit(t, con, dCon, idx) {
 }
 
 window.onload = () => {
+	statusMsg("Please Enter Password:");
+	let f=utils.mkEl('input',utils.mkEl('p',statusText),'field');
+	f.onkeypress = (e) => { if(e.key == 'Enter') Pwd=f.value,formLoad(); }
+}
+
+function formLoad() {
 	console.log("Run test with %ctest()",'background:#000;color:#db0');
 	DB=document.body, DS=DB.style, BDF='backdropFilter' in DS;
 	initLayout(); initBg(); statusMsg("Connecting...");
@@ -356,7 +366,7 @@ function genPdf() {
 //---------------------------------------- Misc. Functions ----------------------------------------
 
 function statusMsg(msg) {
-	statusText.textContent = msg||null; statusBg.hidden = !msg;
+	statusText.textContent = msg||""; statusBg.hidden = !msg;
 	contentBox.hidden = StatMsg = !!msg;
 }
 function showInfo(msg, bg) {

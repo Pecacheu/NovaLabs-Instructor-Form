@@ -1,13 +1,13 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.0.4';
+const VERSION='v3.0 Beta r7';
 
 'use strict';
-const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('sendmail')({silent:true}), stripHtml=require('string-strip-html').stripHtml;
+const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('sendmail')({silent:true}), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
 let Cli={}, ServerIp;
 
 //Config Options:
-const Debug=false, Port=8020, Path="/root",
-ServerName="Automated Forms Server", SendTimeout=15000, ReqTimeout=5000,
+const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
 SrvOpt = {key:fs.readFileSync('cert.key'), cert:fs.readFileSync('cert.crt')};
 
 //Filter Patterns:
@@ -28,15 +28,15 @@ ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
 
 //Entry Point:
 exports.begin = ips => {
-	console.log(chalk.yellow("Link.js Server, [FormBot "+VERSION+"]")
-	+"\nType 'exit' to stop server. Type 'list' for list of clients.\n");
+	console.log(chalk.yellow("FormBot "+VERSION)+
+	"\nType 'exit' to stop server. Type 'list' for list of clients.\n");
 	ServerIp=(ips?ips[0]:'localhost'); getAuth((e) => {
 		if(e) console.log(chalk.bgRed("AuthKey"),e); else init();
 	});
 }
 function init() {
-	console.log("Starting "+chalk.bgRed(ServerName)+'\n');
-	if(Debug == 2) router.debug = Debug; handleInput(); startServer();
+	if(Debug == 2) router.debug=Debug;
+	handleInput(); startServer();
 }
 
 function getAuth(cb) {
@@ -138,95 +138,103 @@ function startServer() {
 }
 
 function initSockets(host) {
-	sio(host).on('connection', sock => {
+	sio(host).on('connection', sck => {
+		let adr=sck.handshake.address.substr(7);
 		console.log(chalk.cyan("[SOCKET] Establishing connection..."));
-		//Handle premature disconnection:
-		sock.on('disconnect', () => {
-			sock.removeAllListeners();
+		sck.on('disconnect', () => {
+			sck.removeAllListeners();
 			console.log(chalk.red("[SOCKET] Connection dropped!"));
 		});
-		//Initial connection event:
-		sock.once('type', function(cType) {
-			if(tyS(cType) && tyN(cType)) return console.log(chalk.red("[SOCKET] Bad response: initType"));
-			this.type=cType; if(!Cli[cType]) Cli[cType]=[]; this.ind=Cli[cType].length; Cli[cType].push(this);
-			console.log(chalk.yellow("[SOCKET] New client",this.handshake.address,"{type="+this.type+",id="+this.ind+"}"));
-
-			if(Debug) console.log("clientList:",logClientList());
-			this.cliLog = (clr, msg) => {console.log(chalk[clr]("[SOCKET "+this.type+":"+this.ind+"] "+msg))}
-			this.cliErr = msg => {this.cliLog('red',msg)}
-
-			this.on('bcast', (type, data, destType) => {
-				if(tyS(type)) return this.cliErr("Bad response: eventType");
-				if(data && tyO(data)) return this.cliErr("Bad response: eventData");
-				if(destType != null && tyS(destType) && tyN(destType)) return this.cliErr("Bad response: eventDestType");
-				if(Debug) this.cliLog('green', "Got "+chalk.yellow(type)+" event");
-				sendToAll(type,data,this,destType); //Forward event to all other clients.
-			});
-
-			this.on('getEvent', ev => {
-				const EV='getEvent';
-				if(!ev || tyS(ev) || ev.length > 20) return ack(this,EV,"Invalid event '"+ev+"'");
-				if(EvLoad) return ack(this,EV,"Server busy"); EvLoad=1;
-				if(ATkn) getEvent(this,ev); else getAuth((e) => {
-					if(e) EvLoad=0,ack(this,EV,"Auth "+e.toString()); else getEvent(this,ev);
-				});
-			});
-
-			this.on('sendForm', (title, date, uName, uMail, data, aList, sType) => {
-				const EV='sendForm';
-				//Error Checking:
-				if(tyS(title) || title.length > 80 || !pTitle.test(title)) return ack(this,EV,"Bad input: title");
-				if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(this,EV,"Bad input: date");
-				if(tyS(uName) || !pText.test(uName)) return ack(this,EV,"Bad input: instructorName");
-				if(tyS(uMail) || !pEmail.test(uMail)) return ack(this,EV,"Bad input: instructorMail");
-				if(tyS(data) || data.length < 1) return ack(this,EV,"Bad input: data");
-				if(data.length > 20000) return ack(this,EV,"Data exceeded maximum length (20000)");
-				if(!Array.isArray(aList) || aList.length > 200) return ack(this,EV,"Bad input: attendeeList");
-				if(!(sType >= 0) || sType && !aList.length) return ack(this,EV,"Bad input: sType");
-				//Attendee List Error Checking:
-				for(let i=0,a,e=0,l=aList.length; i<l; i++) {
-					a=aList[i]; if(a.length !== 3) e="Invalid Length";
-					if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
-					if(tyN(a[1]) || a[1]<0) e="ID Invalid"; if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
-					if(e) return ack(this,EV,"Bad input: attendeeList["+i+"]: "+e);
-				}
-
-				this.cliLog('yellow',"("+EV+") Submitting '"+title+"'...");
-				let t=setTimeout(() => { ack(this,EV,"Failed to send email: Timed out!"); }, SendTimeout);
-				function cancel() { if(t) clearTimeout(t),t=0; }
-
-				//Embedded Event:
-				let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(this.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
-				if(tyS(ev)) return ack(this,EV,"Error generating event data: "+ev[0]);
-
-				//Send Emails:
-				let al=AccAddr.slice(),ok=0; al.push(uMail);
-				if(sType) al.push(MemAddr);
-				for(let i in al) {
-					let a=al[i]; console.log("-",chalk.yellow(a));
-					mail({
-						from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf']||'text/plain', content:data}]
-					}, (e,re) => {
-						if(e && e.message != 'read ECONNRESET') {
-							cancel(); ack(this,EV,"Failed to send to "+a+": "+e.message); return this.cliErr(e);
-						} else if(e) this.cliErr(">>SUPPRESSED ECONNRESET<<");
-						this.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",re);
-						if(ok >= al.length-1) { cancel(); ack(this,EV); } else ok++;
-					});
-				}
-			});
-
-			//Handle disconnection:
-			this.removeAllListeners('disconnect');
-			this.on('disconnect', function() {
-				this.removeAllListeners(); this.cliErr("Client disconnected");
-				if(Debug) console.log("old clientList:",logClientList()); const cList = Cli[this.type]; cList.splice(this.ind,1);
-				for(let i=0,l=cList.length,ind=this.ind; i<l; i++) { let s = cList[i]; if(s.ind > ind) { s.ind--; s.emit('id', s.ind); }}
-				if(Debug) console.log("new clientList:",logClientList());
-			});
-			this.emit('connection', this.ind, VERSION); //Emit connection event.
-		}); sock.emit('type'); //Send type request.
+		function badPwd(p,e) {
+			console.log(chalk.red("[SOCKET] Bad passwd"),adr,"'"+p+"'",e?e.message:'');
+			return setTimeout(() => {sck.emit('badPwd')}, 1000);
+		}
+		sck.once('type', (cType, pwd) => {
+			if(tyS(cType)) return console.log(chalk.red("[SOCKET] Bad cType"),adr);
+			sck.type=cType; argon2.verify(PwdHash,pwd).then((v) => {
+				if(v) initCli(sck,adr); else badPwd(pwd);
+			}).catch((e) => {badPwd(pwd,e)});
+		});
+		sck.emit('type'); //Request type
 	});
+}
+
+function initCli(sck, adr) {
+	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
+	console.log(chalk.yellow("[SOCKET] New client",adr,"{type="+sck.type+",id="+sck.ind+"}"));
+
+	if(Debug) console.log("clientList:",logClientList());
+	sck.cliLog = (clr, msg) => {console.log(chalk[clr]("[SOCKET "+sck.type+":"+sck.ind+"] "+msg))}
+	sck.cliErr = msg => {sck.cliLog('red',msg)}
+
+	sck.on('bcast', (type, data, destType) => {
+		if(tyS(type)) return sck.cliErr("Bad response: eventType");
+		if(data && tyO(data)) return sck.cliErr("Bad response: eventData");
+		if(destType != null && tyS(destType) && tyN(destType)) return sck.cliErr("Bad response: eventDestType");
+		if(Debug) sck.cliLog('green', "Got "+chalk.yellow(type)+" event");
+		sendToAll(type,data,sck,destType); //Forward event to all other clients.
+	});
+
+	sck.on('getEvent', ev => {
+		const EV='getEvent';
+		if(!ev || tyS(ev) || ev.length > 20) return ack(sck,EV,"Invalid event '"+ev+"'");
+		if(EvLoad) return ack(sck,EV,"Server busy"); EvLoad=1;
+		if(ATkn) getEvent(sck,ev); else getAuth((e) => {
+			if(e) EvLoad=0,ack(sck,EV,"Auth "+e.toString()); else getEvent(sck,ev);
+		});
+	});
+
+	sck.on('sendForm', (title, date, uName, uMail, data, aList, sType) => {
+		const EV='sendForm';
+		//Error Checking:
+		if(tyS(title) || title.length > 80 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
+		if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(sck,EV,"Bad input: date");
+		if(tyS(uName) || !pText.test(uName)) return ack(sck,EV,"Bad input: instructorName");
+		if(tyS(uMail) || !pEmail.test(uMail)) return ack(sck,EV,"Bad input: instructorMail");
+		if(tyS(data) || data.length < 1) return ack(sck,EV,"Bad input: data");
+		if(data.length > 20000) return ack(sck,EV,"Data exceeded maximum length (20000)");
+		if(!Array.isArray(aList) || aList.length > 200) return ack(sck,EV,"Bad input: attendeeList");
+		if(!(sType >= 0) || sType && !aList.length) return ack(sck,EV,"Bad input: sType");
+		//Attendee List Error Checking:
+		for(let i=0,a,e=0,l=aList.length; i<l; i++) {
+			a=aList[i]; if(a.length !== 3) e="Invalid Length";
+			if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
+			if(tyN(a[1]) || a[1]<0) e="ID Invalid"; if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
+			if(e) return ack(sck,EV,"Bad input: attendeeList["+i+"]: "+e);
+		}
+
+		sck.cliLog('yellow',"("+EV+") Submitting '"+title+"'...");
+		let t=setTimeout(() => { ack(sck,EV,"Failed to send email: Timed out!"); }, SendTimeout);
+		function cancel() { if(t) clearTimeout(t),t=0; }
+
+		//Embedded Event:
+		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
+		if(tyS(ev)) return ack(sck,EV,"Error generating event data: "+ev[0]);
+
+		//Send Emails:
+		let al=AccAddr.slice(),ok=0; al.push(uMail);
+		if(sType) al.push(MemAddr);
+		for(let i in al) {
+			let a=al[i]; console.log("-",chalk.yellow(a));
+			mail({
+				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf']||'text/plain', content:data}]
+			}, (e,re) => {
+				if(e && e.message != 'read ECONNRESET') {
+					cancel(); ack(sck,EV,"Failed to send to "+a+": "+e.message); return sck.cliErr(e);
+				} else if(e) sck.cliErr(">>SUPPRESSED ECONNRESET<<");
+				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",re);
+				if(ok >= al.length-1) { cancel(); ack(sck,EV); } else ok++;
+			});
+		}
+	});
+
+	//Handle disconnection:
+	sck.removeAllListeners('disconnect');
+	sck.on('disconnect', function() {
+		sck.removeAllListeners(); sck.cliErr("Client disconnected"); CT.splice(sck.ind,1);
+		for(let i=0,l=CT.length,ind=sck.ind; i<l; i++) { let s=CT[i]; if(s.ind > ind) s.emit('id',s.ind--); }
+	});
+	sck.emit('connection', sck.ind, VERSION);
 }
 
 function tyS(v) { return typeof v != 'string'; }
