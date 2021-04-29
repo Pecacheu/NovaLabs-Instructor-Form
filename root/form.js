@@ -3,10 +3,11 @@
 'use strict';
 let FormType="Instructor Formbot";
 let DB, DS, BDF, Socket={}, Pwd, StatMsg, PdfData, PdfSub, EvData;
+const PwdExp=3600000*48; //48 Hours
 
 //---------------------------------------- Background Animation ----------------------------------------
 
-const BgSize=400, BgSpd=15/1000, OCMax=255<<24;
+const BgSize=400, BgSpd=10/1000, OCMax=255<<24;
 let Blur,bgPos=0,bSkp=0,bTs,bgGPU;
 
 window.onblur = () => {Blur=1}
@@ -15,12 +16,12 @@ window.onfocus = () => {Blur=0}
 function initBg() {
 	bgBox.i=new Image(); bgBox.i.src='resources/bg.svg';
 	bgBox.c=bgBox.getContext('2d',{alpha:true}); bgBox.c.imageSmoothingEnabled=false;
-	bgGPU=utils.mobile; window.onresize=bgScale; window.onscroll=() => {bSkp=2};
+	bgGPU=utils.mobile; window.onresize=bgScale; window.onscroll=() => {bSkp=1};
 	bgScale(); requestAnimationFrame(bgRun);
 }
 
 function bgRun() {
-	if(!StatMsg) if(bSkp == 2) {
+	if(!StatMsg) if(bSkp == 1) {
 		bSkp=0; let t=performance.now();
 		bgPos=utils.norm(bgPos + BgSpd*(bTs?t-bTs:0),-400,0), bTs=t;
 		let p=utils.norm(bgPos+(scrollY/4),-400,0);
@@ -84,12 +85,13 @@ function ioInit(t, con, dCon, idx) {
 		Socket.removeAllListeners(); Socket.id=null;
 		Socket.on('type', () => {Socket.emit('type',t,Pwd)});
 		Socket.on('badPwd', () => {
-			statusMsg("Bad Password");
+			statusMsg("Bad Password"); location.hash='pwd';
 			setTimeout(() => {location.reload()}, 1000);
 		});
 		Socket.on('connection', (id,ver) => {
 			Socket.on('disconnect', () => { if(dCon) dCon(); ioReset(); });
 			Socket.on('id', id => { Socket.id=id; if(idx) idx(id); });
+			if(vId.v && vId.v != ver) location.reload(); vId.v=ver;
 			console.log("Connected",vId.textContent=ver);
 			con(Socket.id=id);
 		});
@@ -97,6 +99,7 @@ function ioInit(t, con, dCon, idx) {
 }
 
 window.onload = () => {
+	if(!location.hash && (Pwd=utils.getCookie('pwd'))) return formLoad();
 	statusMsg("Please Enter Password:");
 	let f=utils.mkEl('input',utils.mkEl('p',statusText),'field');
 	f.onkeypress = (e) => { if(e.key == 'Enter') Pwd=f.value,formLoad(); }
@@ -107,7 +110,8 @@ function formLoad() {
 	DB=document.body, DS=DB.style, BDF='backdropFilter' in DS;
 	initLayout(); initBg(); statusMsg("Connecting...");
 	ioInit('form', () => { //Connect:
-		statusMsg();
+		statusMsg(); location.hash='';
+		utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
 		Socket.on('ack', (ev, stat, e) => {
 			console.log("ACK "+(stat?'true':'false')+": "+ev,e?e:'');
 			if(!stat) { //Server-side errors:
@@ -164,9 +168,8 @@ function initLayout() {
 		fRateInfo.textContent = (vc?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
 	}*/
 	//Event Autofill:
-	fTitle.oninput = () => {
-		if(Number(fTitle.value) > 0) Socket.emit('getEvent',fTitle.value);
-	}
+	fTitle.onkeypress = (e) => { if(e.key == 'Enter') getEv(); }
+	fTitle.oninput = (e) => { if(e.inputType == 'insertFromPaste') getEv(); }
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
 		muReject.hidden=muApply.hidden=1; EvData=null;
@@ -200,6 +203,10 @@ function initLayout() {
 			sButton.textContent = "Submit PDF";
 		}
 	}
+}
+
+function getEv() {
+	if(Number(fTitle.value) > 0) Socket.emit('getEvent',fTitle.value);
 }
 
 const SEL = "<select class='field'>\

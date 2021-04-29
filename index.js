@@ -10,7 +10,7 @@ let sysOS, sysArch, sysCPU; getOS();
 let debug = false, //<- Debug Mode Enable
 deleteDir = false, //<- Delete Entire Module Directory and Reinstall if Incomplete
 autoInstallOptionals = true, //<- Also Install Optional Packages During Required Package Installation
-npmInstallNames = ["chalk", "socket.io", "sendmail", "string-strip-html", "argon2"], //<- Dependencies List
+npmInstallNames = ["chalk", "socket.io", "nodemailer", "string-strip-html", "argon2"], //<- Dependencies List
 optionalInstall = [], //<- Optional Dependencies
 externalFiles = [], //<- Optional Site Resources
 extFilePath = "/root/resources/"; //<- Resource Download Location

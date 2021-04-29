@@ -1,9 +1,9 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.0 Beta r7';
+const VERSION='v3.0 Beta r10';
 
 'use strict';
-const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('sendmail')({silent:true}), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
-let Cli={}, ServerIp;
+const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('nodemailer'), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
+let Cli={}, ServerIp, Mailer;
 
 //Config Options:
 const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
@@ -19,24 +19,17 @@ const MsgHeader="{ NovaLabs FormBot Automated Message }", MsgStyle='font:20px "S
 NoHTML="\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.";
 
 //Email Addresses:
-const MailHost='formbot@nova-labs.org', AccAddr=['formbot-events-relay@nova-labs.org'],
-MemAddr='formbot-membership-relay@nova-labs.org';
+const MailPass=fs.readFileSync('mailpass'), MailHost='formbot@nova-labs.org',
+AccAddr=['formbot-events-relay@nova-labs.org'], MemAddr='formbot-membership-relay@nova-labs.org';
 
 //Auth Keys:
 const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
 ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
 
-//Entry Point:
 exports.begin = ips => {
-	console.log(chalk.yellow("FormBot "+VERSION)+
-	"\nType 'exit' to stop server. Type 'list' for list of clients.\n");
-	ServerIp=(ips?ips[0]:'localhost'); getAuth((e) => {
-		if(e) console.log(chalk.bgRed("AuthKey"),e); else init();
-	});
-}
-function init() {
-	if(Debug == 2) router.debug=Debug;
-	handleInput(); startServer();
+	console.log(chalk.yellow("FormBot "+VERSION));
+	ServerIp=(ips?ips[0]:'localhost'); if(Debug == 2) router.debug=Debug;
+	getAuth((e) => { if(e) console.log(chalk.bgRed("AuthKey"),e); else initMail(); });
 }
 
 function getAuth(cb) {
@@ -56,10 +49,20 @@ function getAuth(cb) {
 	}, "grant_type=client_credentials&scope=auto");
 }
 
+function initMail() {
+	Mailer=mail.createTransport({
+		host:"smtp.gmail.com", port:587, requireTLS:true, auth:{user:MailHost, pass:MailPass}
+	});
+	Mailer.verify((e) => {
+		if(e) { console.log(chalk.bgRed("SMTP Init"),e); return process.exit(); }
+		console.log("SMTP connected!"); startServer(); runInput();
+	});
+}
+
 function getEvent(sk,ev) {
 	const EV='getEvent', hd={Authorization:"Bearer "+ATkn};
 	httpsReq(ApiUri+AUsr+"/events/"+ev, 'GET', hd, (e,d) => {
-		if(e) return EvLoad=0,ack(sk,EV,e.toString());
+		if(e) return EvLoad=0,ack(sk,EV,"'"+ev+"': "+e.message);
 		httpsReq(ApiUri+AUsr+"/eventregistrations?eventId="+ev, 'GET', hd, (e,dr) => {
 			if(!e) try {
 				d=JSON.parse(d), dr=JSON.parse(dr);
@@ -82,19 +85,19 @@ function getEvent(sk,ev) {
 				evm.raw=[d,dr]; //<------- TEST
 				console.log("Got Event "+ev); ack(sk,EV,(sk.evm=evm));
 			} catch(e2) {e=e2}
-			EvLoad=0; if(e) ack(sk,EV,ev+': '+e.toString());
+			EvLoad=0; if(e) ack(sk,EV,"'"+ev+"': "+e.message);
 		});
 	});
 }
 function getEvUser(u) {
-	let fn,ln,em,r=u.RegistrationFields;
+	let fn,ln,em,r=u.RegistrationFields,t=u.RegistrationType;
 	for(let i=0,l=r.length; i<l; i++) switch(r[i].SystemCode) {
 		case 'FirstName': fn=r[i].Value; break; case 'LastName': ln=r[i].Value; break;
 		case 'Email': em=r[i].Value; break;
 	}
-	if(!fn || !ln || !em) throw "User Data "+u.Id;
+	if(!fn || !ln || !em || !t || !t.Name) throw "User Data "+u.Id;
 	return {name:fn+' '+ln, email:em, id:u.Id, fee:u.PaidSum||0,
-	h:u.RegistrationType.Name.startsWith("Instructor")};
+	h:t.Name.startsWith("Instructor")};
 }
 
 function httpsReq(uri, mt, hdr, cb, rb) {
@@ -109,22 +112,6 @@ function httpsReq(uri, mt, hdr, cb, rb) {
 	}
 }
 
-//Allows you to quit by typing exit:
-function handleInput() {
-	process.stdin.resume();
-	process.stdin.setEncoding('utf8');
-	process.stdin.on('data', cmd => {
-		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd = cmd.substring(0,s);
-		if(cmd == 'exit' || cmd == 'quit' || cmd == 'stop') {
-			console.log(chalk.magenta("Exiting...")); process.exit();
-		} else if(cmd == 'list') {
-			console.log("clientList:",chalk.yellow(logClientList()));
-		} else {
-			console.log(chalk.red("Unknown command '"+cmd+"'"));
-		}
-	});
-}
-
 function startServer() {
 	function onReq(req, resp) {
 		let uri=url.parse(req.url), pn=uri.pathname;
@@ -134,46 +121,35 @@ function startServer() {
 	let srv=https.createServer(SrvOpt,onReq).listen(Port, () => {
 		console.log("Listening at "+chalk.bgGreen('https://'+ServerIp+':'+Port)+'\n');
 	});
-	initSockets(srv);
-}
-
-function initSockets(host) {
+	//Init Socket.io
 	sio(host).on('connection', sck => {
-		let adr=sck.handshake.address.substr(7);
-		console.log(chalk.cyan("[SOCKET] Establishing connection..."));
+		sck.adr=sck.handshake.address.substr(7);
+		console.log(chalk.cyan("[SCK] Establishing connection..."));
 		sck.on('disconnect', () => {
 			sck.removeAllListeners();
-			console.log(chalk.red("[SOCKET] Connection dropped!"));
+			console.log(chalk.red("[SCK] Connection dropped!"));
 		});
 		function badPwd(p,e) {
-			console.log(chalk.red("[SOCKET] Bad passwd"),adr,"'"+p+"'",e?e.message:'');
+			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,"'"+p+"'",e?e.message:'');
 			return setTimeout(() => {sck.emit('badPwd')}, 1000);
 		}
 		sck.once('type', (cType, pwd) => {
-			if(tyS(cType)) return console.log(chalk.red("[SOCKET] Bad cType"),adr);
+			if(tyS(cType)) return console.log(chalk.red("[SCK] Bad cType"),sck.adr);
 			sck.type=cType; argon2.verify(PwdHash,pwd).then((v) => {
-				if(v) initCli(sck,adr); else badPwd(pwd);
+				if(v) initCli(sck); else badPwd(pwd);
 			}).catch((e) => {badPwd(pwd,e)});
 		});
 		sck.emit('type'); //Request type
 	});
 }
 
-function initCli(sck, adr) {
+function initCli(sck) {
 	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
-	console.log(chalk.yellow("[SOCKET] New client",adr,"{type="+sck.type+",id="+sck.ind+"}"));
+	console.log(chalk.yellow("[SCK] New client",sck.adr,"{type="+sck.type+",id="+sck.ind+"}"));
 
 	if(Debug) console.log("clientList:",logClientList());
-	sck.cliLog = (clr, msg) => {console.log(chalk[clr]("[SOCKET "+sck.type+":"+sck.ind+"] "+msg))}
+	sck.cliLog = (clr, msg) => {console.log(chalk[clr]("["+sck.type+":"+sck.ind+"] "+msg))}
 	sck.cliErr = msg => {sck.cliLog('red',msg)}
-
-	sck.on('bcast', (type, data, destType) => {
-		if(tyS(type)) return sck.cliErr("Bad response: eventType");
-		if(data && tyO(data)) return sck.cliErr("Bad response: eventData");
-		if(destType != null && tyS(destType) && tyN(destType)) return sck.cliErr("Bad response: eventDestType");
-		if(Debug) sck.cliLog('green', "Got "+chalk.yellow(type)+" event");
-		sendToAll(type,data,sck,destType); //Forward event to all other clients.
-	});
 
 	sck.on('getEvent', ev => {
 		const EV='getEvent';
@@ -205,7 +181,7 @@ function initCli(sck, adr) {
 
 		sck.cliLog('yellow',"("+EV+") Submitting '"+title+"'...");
 		let t=setTimeout(() => { ack(sck,EV,"Failed to send email: Timed out!"); }, SendTimeout);
-		function cancel() { if(t) clearTimeout(t),t=0; }
+		function tStop() { if(t) clearTimeout(t),t=0; }
 
 		//Embedded Event:
 		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
@@ -216,14 +192,12 @@ function initCli(sck, adr) {
 		if(sType) al.push(MemAddr);
 		for(let i in al) {
 			let a=al[i]; console.log("-",chalk.yellow(a));
-			mail({
-				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf']||'text/plain', content:data}]
-			}, (e,re) => {
-				if(e && e.message != 'read ECONNRESET') {
-					cancel(); ack(sck,EV,"Failed to send to "+a+": "+e.message); return sck.cliErr(e);
-				} else if(e) sck.cliErr(">>SUPPRESSED ECONNRESET<<");
-				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",re);
-				if(ok >= al.length-1) { cancel(); ack(sck,EV); } else ok++;
+			Mailer.sendMail({
+				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:data}]
+			}, (e,r) => {
+				if(e) { tStop(); return ack(sck,EV,"Failed to send to "+a+": "+e.message); }
+				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",r.response);
+				if(ok >= al.length-1) { tStop(); ack(sck,EV); } else ok++;
 			});
 		}
 	});
@@ -268,28 +242,14 @@ function ack(cli, eType, stat) {
 	else { cli.cliErr("("+eType+") "+stat); cli.emit('ack',eType,false,stat); }
 }
 
-//Send event to all clients:
-function sendToAll(type, data, skipCli, destType) {
-	const cKeys = Object.keys(Cli), tp = skipCli?skipCli.type:null, ind = skipCli?skipCli.ind:-1;
-	for(let t=0,k=cKeys.length; t<k; t++) {
-		const cType = cKeys[t], cList = Cli[cType];
-		for(let i=0,l=cList.length; i<l; i++) { if((!destType || cType == destType) && (cType != tp || i != ind)) {
-			try { cList[i].emit('bcast', type, data, tp, ind) } catch(e) {
-				const msg = "Could not forward event to client "+cType+":"+i+"!";
-				if(skipCli) skipCli.cliErr(msg); else console.log(chalk.red("[SOCKET] "+msg));
-			}
-		}}
-	}
-}
-
 function logClientList() {
-	let str = ""; const cKeys = Object.keys(Cli);
-	for(let t=0,k=cKeys.length; t<k; t++) {
-		str += (t==0?"":", ")+"'"+cKeys[t]+"':["; const cList = Cli[cKeys[t]];
-		for(let i=0,l=cList.length; i<l; i++) str += (i==0?"":",")+cList[i].ind;
-		str += "]";
+	let ck=Object.keys(Cli), s="";
+	for(let t=0,k=ck.length,cl; t<k; t++) {
+		s += (t==0?"":", ")+"'"+ck[t]+"':["; cl=Cli[ck[t]];
+		for(let i=0,l=ck.length; i<l; i++) s += (i==0?"":",")+cl[i].adr;
+		s += "]";
 	}
-	return str;
+	return s;
 }
 
 function formatCost(n,sym) { //From utils.js
@@ -297,4 +257,17 @@ function formatCost(n,sym) { //From utils.js
 	const p = n.toFixed(2).split('.');
 	return sym+p[0].split('').reverse().reduce((a, n, i) =>
 	{ return n=='-'?n+a:n+(i&&!(i%3)?',':'')+a; },'')+'.'+p[1];
+}
+
+function runInput() {
+	console.log("Type 'list' to list clients. Type 'q' to quit.");
+	process.stdin.resume(); process.stdin.setEncoding('utf8');
+	process.stdin.on('data', cmd => {
+		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd = cmd.substring(0,s);
+		if(cmd == 'exit' || cmd == 'q') {
+			console.log(chalk.magenta("Exiting...")); process.exit();
+		} else if(cmd == 'list') {
+			console.log("clientList:",chalk.yellow(logClientList()));
+		}
+	});
 }
