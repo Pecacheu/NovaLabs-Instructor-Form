@@ -1,14 +1,14 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.0 Beta r10';
+const VERSION='v3.1';
 
 'use strict';
 const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('nodemailer'), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
 let Cli={}, ServerIp, Mailer;
 
 //Config Options:
-const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+const Debug=true, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
 PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
-SrvOpt = {key:fs.readFileSync('cert.key'), cert:fs.readFileSync('cert.crt')};
+SrvOpt = {key:fs.readFileSync('../snap/keys/privkey.pem'), cert:fs.readFileSync('../snap/keys/fullchain.pem')};
 
 //Filter Patterns:
 const pTitle=/^[\w\-:.<>()[\]&*%!, ]+$/, pText=/^[\w\+\-(). ]+$/,
@@ -29,24 +29,21 @@ ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
 exports.begin = ips => {
 	console.log(chalk.yellow("FormBot "+VERSION));
 	ServerIp=(ips?ips[0]:'localhost'); if(Debug == 2) router.debug=Debug;
-	getAuth((e) => { if(e) console.log(chalk.bgRed("AuthKey"),e); else initMail(); });
+	getAuth().then(initMail).catch(e => console.log(chalk.bgRed("AuthKey"),e));
 }
 
-function getAuth(cb) {
+async function getAuth() {
 	if(ATkn) return;
 	let hdr = {
 		"Content-type":"application/x-www-form-urlencoded",
 		Authorization:"Basic "+Buffer.from("APIKEY:"+ApiKey).toString('base64')
-	};
-	httpsReq(AuthUri, 'POST', hdr, (e,d) => {
-		if(!e) try {
-			d=JSON.parse(d); let ex=d.expires_in;
-			if(!(ATkn=d.access_token)) throw "Invalid Token";
-			if(!(AUsr=d.Permissions[0].AccountId)) throw "Invalid UUID";
-			console.log("Auth Token:",ATkn,"UID:",AUsr,"Exp:",ex);
-			setTimeout(() => {ATkn=0;console.log("Token expired")}, ex*1000);
-		} catch(e2) {e=e2} cb(e);
-	}, "grant_type=client_credentials&scope=auto");
+	},
+	d=JSON.parse(await httpsReq(AuthUri, 'POST', hdr, "grant_type=client_credentials&scope=auto")),
+	ex=d.expires_in;
+	if(!(ATkn=d.access_token)) throw "Invalid Token";
+	if(!(AUsr=d.Permissions[0].AccountId)) throw "Invalid UUID";
+	console.log("Auth Token:",ATkn,"UID:",AUsr,"Exp:",ex);
+	setTimeout(() => {ATkn=0;console.log("Token expired")}, ex*1000);
 }
 
 function initMail() {
@@ -60,56 +57,65 @@ function initMail() {
 }
 
 function getEvent(sk,ev) {
-	const EV='getEvent', hd={Authorization:"Bearer "+ATkn};
-	httpsReq(ApiUri+AUsr+"/events/"+ev, 'GET', hd, (e,d) => {
-		if(e) return EvLoad=0,ack(sk,EV,"'"+ev+"': "+e.message);
-		httpsReq(ApiUri+AUsr+"/eventregistrations?eventId="+ev, 'GET', hd, (e,dr) => {
-			if(!e) try {
-				d=JSON.parse(d), dr=JSON.parse(dr);
-				let rt=d.Details.RegistrationTypes, evm={
-					name:d.Name, id:d.Id, link:"https://portal.nova-labs.org/event-"+d.Id,
-					ven:"Nova Labs", loc:d.Location, fRaw:0, dRaw:d.StartDate,
-					yes:d.ConfirmedRegistrationsCount, wait:d.PendingRegistrationsCount,
-					desc:stripHtml(d.Details.DescriptionHtml).result, hosts:[], rsvp:[]
-				};
-				//Fee Info:
-				for(let i=0,l=rt.length; i<l; i++) evm.fRaw=Math.max(rt[i].BasePrice||0,evm.fRaw);
-				evm.fee=evm.fRaw?formatCost(evm.fRaw):"Free";
-				//RSVP:
-				if(evm.yes != dr.length) throw "RSVP Mismatch";
-				for(let i=0,l=dr.length,u; i<l; i++) {
-					u=getEvUser(dr[i]); if(u.h) evm.hosts.push(u); else evm.rsvp.push(u);
-				}
-				evm.yes -= evm.hosts.length;
-				if(!evm.hosts.length) evm.hosts.push({name:"???",email:''});
-				evm.raw=[d,dr]; //<------- TEST
-				console.log("Got Event "+ev); ack(sk,EV,(sk.evm=evm));
-			} catch(e2) {e=e2}
-			EvLoad=0; if(e) ack(sk,EV,"'"+ev+"': "+e.message);
-		});
+	const EV='getEvent';
+	getEvData(ev).then(evm => {
+		console.log("Got Event "+ev);
+		EvLoad=0; ack(sk,EV,(sk.evm=evm));
+	}).catch(e => {
+		EvLoad=0; ack(sk,EV,ev+": "+e);
 	});
 }
-function getEvUser(u) {
+async function getEvData(ev) {
+	const hd={Authorization:"Bearer "+ATkn};
+	d=await httpsReq(ApiUri+AUsr+"/events/"+ev, 'GET', hd);
+	dr=await httpsReq(ApiUri+AUsr+"/eventregistrations?eventId="+ev, 'GET', hd);
+	//Parse:
+	d=JSON.parse(d), dr=JSON.parse(dr);
+	let rt=d.Details.RegistrationTypes, evm={
+		name:d.Name, id:d.Id, link:"https://portal.nova-labs.org/event-"+d.Id,
+		ven:"Nova Labs", loc:d.Location, fRaw:0, dRaw:d.StartDate,
+		yes:d.ConfirmedRegistrationsCount, wait:d.PendingRegistrationsCount,
+		desc:stripHtml(d.Details.DescriptionHtml).result, hosts:[], rsvp:[]
+	};
+	//Fee Info:
+	for(let i=0,l=rt.length; i<l; i++) evm.fRaw=Math.max(rt[i].BasePrice||0,evm.fRaw);
+	evm.fee=evm.fRaw?formatCost(evm.fRaw):"Free";
+	//RSVP:
+	for(let i=0,l=dr.length,u; i<l; i++) {
+		try { u=await getEvUser(dr[i],hd); } catch(e) { throw "User["+i+"] "+e; }
+		if(u.h) evm.hosts.push(u); else evm.rsvp.push(u);
+	}
+	evm.yes -= evm.hosts.length;
+	if(!evm.hosts.length) evm.hosts.push({name:"???",email:''});
+	if(Debug) evm.raw=[d,dr];
+	return evm;
+}
+async function getEvUser(u,hd) {
 	let fn,ln,em,r=u.RegistrationFields,t=u.RegistrationType;
 	for(let i=0,l=r.length; i<l; i++) switch(r[i].SystemCode) {
 		case 'FirstName': fn=r[i].Value; break; case 'LastName': ln=r[i].Value; break;
 		case 'Email': em=r[i].Value; break;
 	}
-	if(!fn || !ln || !em || !t || !t.Name) throw "User Data "+u.Id;
-	return {name:fn+' '+ln, email:em, id:u.Id, fee:u.PaidSum||0,
-	h:t.Name.startsWith("Instructor")};
+	if(!fn || !ln || !em || !t || !t.Name || !u.Contact) throw "Data Error";
+	//Get Member Level:
+	let c=JSON.parse(await httpsReq(ApiUri+AUsr+"/contacts/"+u.Contact.Id, 'GET', hd));
+	return {name:fn+' '+ln, email:em, id:u.Contact.Id, fee:u.PaidSum||0,
+	level:c.MembershipLevel?c.MembershipLevel.Name:null, h:t.Name.startsWith("Instructor")};
 }
 
-function httpsReq(uri, mt, hdr, cb, rb) {
-	let dat='',tt,re,rq=https.request(uri, {method:mt,headers:hdr}, (r) => {
-		re=r; r.setEncoding('utf8'); r.on('data', d => { dat+=d; }); r.on('end', rEnd);
-	}).on('error', rEnd);
-	tt=setTimeout(() => { tt=0; rEnd(Error("Timed Out")); }, ReqTimeout);
-	if(rb) rq.write(rb); rq.end();
-	function rEnd(e) {
-		if(rq.ee) return; if(e) rq.destroy(); rq.ee=1; if(tt) clearTimeout(tt);
-		if(!e && re.statusCode != 200) e=Error("Code "+re.statusCode+(dat?" "+dat:'')); cb(e,dat);
-	}
+function httpsReq(uri, mt, hdr, rb) {
+	return new Promise((res,rej) => {
+		let dat='',tt,re,rq=https.request(uri, {method:mt,headers:hdr}, (r) => {
+			re=r; r.setEncoding('utf8'); r.on('data', d => { dat+=d; }); r.on('end', rEnd);
+		}).on('error', rEnd);
+		if(rb) rq.write(rb); rq.end();
+		tt=setTimeout(() => rEnd(Error("Timed Out")), ReqTimeout);
+		function rEnd(e) {
+			if(rq.ee) return; if(e) rq.destroy(); rq.ee=1; clearTimeout(tt);
+			if(!e && re.statusCode != 200) rej(Error("Code "+re.statusCode+(dat?" "+dat:'')+" "+uri));
+			else res(dat);
+		}
+	});
 }
 
 function startServer() {
@@ -122,7 +128,7 @@ function startServer() {
 		console.log("Listening at "+chalk.bgGreen('https://'+ServerIp+':'+Port)+'\n');
 	});
 	//Init Socket.io
-	sio(host).on('connection', sck => {
+	sio(srv).on('connection', sck => {
 		sck.adr=sck.handshake.address.substr(7);
 		console.log(chalk.cyan("[SCK] Establishing connection..."));
 		sck.on('disconnect', () => {
@@ -130,8 +136,8 @@ function startServer() {
 			console.log(chalk.red("[SCK] Connection dropped!"));
 		});
 		function badPwd(p,e) {
-			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,"'"+p+"'",e?e.message:'');
-			return setTimeout(() => {sck.emit('badPwd')}, 1000);
+			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,"'"+p+"'",e||'');
+			return setTimeout(() => sck.emit('badPwd'), 1000);
 		}
 		sck.once('type', (cType, pwd) => {
 			if(tyS(cType)) return console.log(chalk.red("[SCK] Bad cType"),sck.adr);
@@ -155,9 +161,8 @@ function initCli(sck) {
 		const EV='getEvent';
 		if(!ev || tyS(ev) || ev.length > 20) return ack(sck,EV,"Invalid event '"+ev+"'");
 		if(EvLoad) return ack(sck,EV,"Server busy"); EvLoad=1;
-		if(ATkn) getEvent(sck,ev); else getAuth((e) => {
-			if(e) EvLoad=0,ack(sck,EV,"Auth "+e.toString()); else getEvent(sck,ev);
-		});
+		if(ATkn) getEvent(sck,ev); else getAuth().then(() => getEvent(sck,ev))
+		.catch(e => { EvLoad=0,ack(sck,EV,"Auth "+e); });
 	});
 
 	sck.on('sendForm', (title, date, uName, uMail, data, aList, sType) => {
@@ -195,7 +200,7 @@ function initCli(sck) {
 			Mailer.sendMail({
 				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:data}]
 			}, (e,r) => {
-				if(e) { tStop(); return ack(sck,EV,"Failed to send to "+a+": "+e.message); }
+				if(e) { tStop(); return ack(sck,EV,"Failed to send to "+a+": "+e); }
 				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",r.response);
 				if(ok >= al.length-1) { tStop(); ack(sck,EV); } else ok++;
 			});
@@ -246,7 +251,7 @@ function logClientList() {
 	let ck=Object.keys(Cli), s="";
 	for(let t=0,k=ck.length,cl; t<k; t++) {
 		s += (t==0?"":", ")+"'"+ck[t]+"':["; cl=Cli[ck[t]];
-		for(let i=0,l=ck.length; i<l; i++) s += (i==0?"":",")+cl[i].adr;
+		for(let i=0,l=cl.length; i<l; i++) s += (i==0?"":",")+cl[i].adr;
 		s += "]";
 	}
 	return s;

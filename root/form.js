@@ -93,7 +93,7 @@ function ioInit(t, con, dCon, idx) {
 			Socket.on('id', id => { Socket.id=id; if(idx) idx(id); });
 			if(vId.v && vId.v != ver) location.reload(); vId.v=ver;
 			console.log("Connected",vId.textContent=ver);
-			con(Socket.id=id);
+			con(Socket.id=id); Socket.c=1;
 		});
 	}
 }
@@ -110,8 +110,13 @@ function formLoad() {
 	DB=document.body, DS=DB.style, BDF='backdropFilter' in DS;
 	initLayout(); initBg(); statusMsg("Connecting...");
 	ioInit('form', () => { //Connect:
-		statusMsg(); location.hash='';
-		utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
+		statusMsg(); if(!Socket.c) { //First:
+			location.hash='';
+			utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
+			if(location.search.length > 1) {
+				fTitle.value = location.search.substr(1); getEv();
+			}
+		}
 		Socket.on('ack', (ev, stat, e) => {
 			console.log("ACK "+(stat?'true':'false')+": "+ev,e?e:'');
 			if(!stat) { //Server-side errors:
@@ -151,7 +156,6 @@ function initLayout() {
 	let fd=document.getElementsByClassName('field');
 	for(let i=0,l=fd.length,f; i<l; i++) {
 		f=fd[i]; f.addEventListener('focus',rstForm);
-		//if(f.num != null) f.onnuminput=doCostBreakdown; //////////////////////////// COST BREAKDOWN??
 		let p=f.getAttribute('charPattern'); if(p) { //RegEx Parse:
 			p=new RegExp(p); f.onkeypress = e => {
 				let k=e.key; if(k.length != 1) return;
@@ -159,17 +163,9 @@ function initLayout() {
 			}
 		}
 	}
-	/*//Update cost breakdown system on membership-type change:
-	fType.onchange = function() {
-		const v = this.value, vc = (v == 'cus'), vm = (v == 'min'); let r=30;
-		fRate.par.hidden = !vc; fCount.par.hidden = fMatCost.par.hidden = vm;
-		fCostText.textContent = vm?'Payment':'Cost/Student';
-		if(vm) { fCount.set(1); fMatCost.set(0); r=0; }
-		fRateInfo.textContent = (vc?'Negotiated':r+'%')+' NovaLabs Rate'; fRate.set(r);
-	}*/
 	//Event Autofill:
 	fTitle.onkeypress = (e) => { if(e.key == 'Enter') getEv(); }
-	fTitle.oninput = (e) => { if(e.inputType == 'insertFromPaste') getEv(); }
+	fTitle.oninput = (e) => { if(e.inputType == 'insertFromPaste' || !e.inputType) getEv(); }
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
 		muReject.hidden=muApply.hidden=1; EvData=null;
@@ -183,7 +179,7 @@ function initLayout() {
 		if(r.length != a.length-1) return showInfo("Error: RSVP Mismatch");
 		for(let i=1,l=a.length,u,s; i<l; i++) {
 			u=r[i-1],s=a[i].children; s[0].firstChild.value=u.name,
-			s[1].firstChild.value=u.id, s[3].firstChild.set(u.fee);
+			s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
 		}
 	}
 	//Submit:
@@ -206,10 +202,10 @@ function initLayout() {
 }
 
 function getEv() {
-	if(Number(fTitle.value) > 0) Socket.emit('getEvent',fTitle.value);
+	if(Number(fTitle.value) > 0) showInfo("Loading..."),Socket.emit('getEvent',fTitle.value);
 }
 
-const SEL = "<select class='field'>\
+const SEL = "<select class=field>\
 	<option selected>---</option>\
 	<option>No Show</option>\
 	<option>No GO</option>\
@@ -225,8 +221,8 @@ const SEL = "<select class='field'>\
 
 function layoutMakeRow() {
 	let r=utils.mkEl('tr');
-	utils.mkEl('td',r,'name',null,"<input type='text' onfocus='rstForm()'>");
-	utils.mkEl('td',r,null,null,"<input type='number' onfocus='rstForm()' pattern='\d*'>");
+	utils.mkEl('td',r,'name',null,"<input type=text onfocus=rstForm()>");
+	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm()>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
 	let f=utils.costField(utils.mkEl('input',utils.mkEl('td',r,'user')));
 	f.set(fCost.num); f.onfocus=rstForm; aTable.appendChild(r);
@@ -242,6 +238,7 @@ function rstForm() {
 function genEvent(ev,e) {
 	EvData=ev; muMatch.innerHTML=''; muReject.hidden=0;
 	const box=utils.mkDiv(muMatch,'muEvent'); if(e) return box.innerHTML="<b>Error:</b> "+e;
+	rstForm();
 	//Info:
 	let t=utils.mkEl('a',box,'muTitle'), i=utils.mkDiv(box,'muDetail'),
 	v=utils.mkEl('a',i,'muVen'), l=utils.mkDiv(i,'muSub'), d=utils.mkDiv(i,'muDesc');
@@ -262,28 +259,6 @@ function genEvent(ev,e) {
 	muApply.hidden=0;
 }
 
-/*//Show current fee total:
-function doCostBreakdown() { if(!pdfSub) {
-	const charge=fCost.num, sNum=fCount.num, mats=fMatCost.num, rate=fRate.num;
-	let text='', color='rgba(0,150,200,0.8)';
-	if(charge < 15) {
-		text = "Warning: "+utils.formatCost(charge)+" is too low! Minimum class fee eligible for reimbursement is $15.00!";
-		color = 'rgba(200,160,0,0.8)';
-	} else {
-		const r = charge*sNum, p = utils.formatCost(r-mats), t = (r-mats)*((100-rate)/100)+mats;
-		text = "Class Profit: "+utils.formatCost(charge)+" Charge x "+sNum+" Students - "+utils.formatCost(mats)+" Materials = "+p
-		+"\nTotal Reimbursement: "+p+" - "+rate+"% Rate + Materials = "+utils.formatCost(t);
-		if(r-t <= 0 && fType.value != 'min') {
-			text += "\nWarning: NovaLabs makes "+utils.formatCost(r-t)+"! Please ensure you've coordinated this with the board!";
-			color = 'rgba(200,160,0,0.8)';
-		} else if(mats >= t) {
-			text += "\nWarning: Your class did not make any profit! You may still submit your form.";
-			color = 'rgba(200,160,0,0.8)';
-		} else if(mats) text += "\nNote: Materials cost is for tax purposes only.";
-	}
-	showInfo(text, color);
-}}*/
-
 //---------------------------------------- PDF Generator ----------------------------------------
 
 const cTitle='#111133', cMain='#405555', cData='#8888aa',
@@ -300,17 +275,17 @@ function genPdf() {
 	if(fPay.value == 'don' && !fF) return "Donation To";
 	if(!fT) return "Class Name"; if(!fDate.value) return "Class Date";
 	if(!fN) return "Instructor Name"; if(!fM) return "Instructor Email";
-	if(!fY) return "Class Type"; if(!fC || fC<15) return "Cost Per Student";
+	if(!fY) return "Class Type"; if(!fC || fC<15) return "Price Below $15";
 	if(!fS || fS<0) return "Students Count"; if(!(fMC>=0)) return "Material Cost";
 	if(fR<0 || fR>100) return "NovaLabs Rate";
 
 	//Read Attendee List:
-	let a=aTable.children, sl=[]; aTable.sl=sl;
+	let a=aTable.children,sl=[],rt=0; aTable.sl=sl;
 	if(a.length-1 !== fS) return "List Size must equal Student Count";
 	for(let i=1,l=a.length,s,n,r,u,p; i<l; i++) {
-		s=a[i].children; n=s[0].firstChild.value, u=Number(s[1].firstChild.value)||0,
+		s=a[i].children; n=s[0].firstChild.value, u=s[1].firstChild.value,
 		r=s[2].firstChild, p=s[3].firstChild; if(!n) return "Attendee List ["+(i-1)+"]";
-		sl.push([n+(r.options.selectedIndex?' ('+selBoxValue(r)+')':''),u,p.value]);
+		sl.push([n+(r.options.selectedIndex?' ('+selBoxValue(r)+')':''),u,p.value]); rt+=p.num;
 	}
 
 	const pdf = new jsPDF({orientation:'portrait', unit:'in', format:[8.5,11]});
@@ -335,33 +310,30 @@ function genPdf() {
 	pdfLine(4,'Email',fM,cMail);
 
 	//Cost Breakdown:
-	let r=fC*fS, p=utils.formatCost(r-fMC), t=(r-fMC)*((100-fR)/100)+fMC, tt=utils.formatCost(t);
+	let p=utils.formatCost(rt-fMC), t=(rt-fMC)*((100-fR)/100)+fMC, tt=utils.formatCost(t);
 	//Revenue:
 	pdf.setFontSize(20);
-	if(fMC>0) multiColor(5,cData,utils.formatCost(fC),cSub," x ",cData,fS,cSub," Students - ",
-	cData,utils.formatCost(fMC),cSub," Materials = ",cData,p,cSub," Class Profit");
-	else multiColor(5,cData,utils.formatCost(fC),cSub," x ",cData,fS,cSub," Students = ",
-	cData,p,cSub," Class Profit");
+	if(fMC>0) multiColor(5,cData,utils.formatCost(rt),cSub," Revenue - ",
+	cData,utils.formatCost(fMC),cSub," Materials = ",cData,p,cSub," Profit");
+	else multiColor(5,cData,fS,cSub," Paid Students = ",cData,p,cSub," Class Revenue");
 	//Reimbursement:
 	multiColor(5.4,cData,p,cSub," - ",cMain,"("+fR+"% NL Rate)",
 	cSub,(fMC>0)?" + Materials = ":" = ",cData,tt,cSub," Reimbursement");
 	//Step 3. Profit!
 	multiColor(10.8,cSub,"( Revenue - ",cData,tt,cSub," = ",
-	cMain,utils.formatCost(r-t)+" NovaLabs Profit",cSub," )");
+	cMain,utils.formatCost(rt-t)+" NovaLabs Profit",cSub," )");
 
 	//Attendee List:
-	if(sl && sl.length) {
-		pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
-		pdf.text(8.5/2,0.7,"Attendee List",null,null,'center');
-		pdf.setFontSize(20); pdf.setTextColor(cMain);
-		pdf.text(xOff,1.4,"Name"); pdf.text(4.7,1.4,"ID");
-		pdf.text(8.5-xOff,1.4,"Payment",null,null,'right');
-		pdf.setFontSize(15); pdf.setTextColor(cTitle);
-		for(let i=0,l=sl.length,off=1.75,s; i<l; i++,off+=0.25) {
-			s=sl[i]; pdf.text(xOff,off,(i+1)+'. '+s[0]); pdf.setTextColor(cMail);
-			pdf.text(4.6,off,s[1].toString()); pdf.setTextColor(cTitle);
-			if(s[2]) pdf.text(8.5-xOff,off,s[2],null,null,'right');
-		}
+	pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
+	pdf.text(8.5/2,0.7,"Attendee List",null,null,'center');
+	pdf.setFontSize(20); pdf.setTextColor(cMain);
+	pdf.text(xOff,1.4,"Name"); pdf.text(4.4,1.4,"Membership");
+	pdf.text(8.5-xOff,1.4,"Payment",null,null,'right');
+	pdf.setFontSize(15); pdf.setTextColor(cTitle);
+	for(let i=0,l=sl.length,off=1.75,s; i<l; i++,off+=0.25) {
+		s=sl[i]; pdf.text(xOff,off,(i+1)+'. '+s[0]); pdf.setTextColor(cMail);
+		pdf.text(4.6,off,s[1].toString()); pdf.setTextColor(cTitle);
+		if(s[2]) pdf.text(8.5-xOff,off,s[2],null,null,'right');
 	}
 
 	let f=utils.mkDiv(DB,'pdf'); utils.mkDiv(f,'pdfExit',null,"PDF Preview <i>(Click to exit)</i>");
