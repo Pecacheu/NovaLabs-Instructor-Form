@@ -1,12 +1,12 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.1';
+const VERSION='v3.1.1';
 
 'use strict';
 const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('nodemailer'), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
 let Cli={}, ServerIp, Mailer;
 
 //Config Options:
-const Debug=true, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
 PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
 SrvOpt = {key:fs.readFileSync('../snap/keys/privkey.pem'), cert:fs.readFileSync('../snap/keys/fullchain.pem')};
 
@@ -180,7 +180,8 @@ function initCli(sck) {
 		for(let i=0,a,e=0,l=aList.length; i<l; i++) {
 			a=aList[i]; if(a.length !== 3) e="Invalid Length";
 			if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
-			if(tyN(a[1]) || a[1]<0) e="ID Invalid"; if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
+			if(tyS(a[1]) || a[0].length > 40) e="Level Invalid";
+			if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
 			if(e) return ack(sck,EV,"Bad input: attendeeList["+i+"]: "+e);
 		}
 
@@ -229,7 +230,7 @@ function genTable(tb) {
 	}
 	for(let i=0,l=tb.length; i<l; i++) makeRow(tb[i],i);
 	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+
-	"'><th style='width:40%'>Name</th><th>User ID</th><th>Payment</th></tr>"+lh+"</table>";
+	"'><th style='width:40%'>Name</th><th>Member Level</th><th>Payment</th></tr>"+lh+"</table>";
 }
 
 const muEvent='width:550px;overflow:hidden;font-size:16px;border-radius:8px;padding:16px;border:1px solid rgba(0,0,0,0.12);background:#fafafa;box-shadow:2px 2px 2px rgba(0,0,0,0.3); color:rgba(0,0,0,0.87)', muLink='color:inherit;display:inline-block;text-decoration:none;vertical-align:bottom;', muTitle='font-size:16pt;font-weight:600;white-space:pre-line', muDetail='margin-top:6px;width:70%;float:left', muVen='color:rgb(0,154,227)', muSub='color:rgba(0,0,0,0.54);font-size:13px', muDesc='margin-top:6px;line-height:1.35em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;height:84px;overflow:hidden', muMeta='margin-top:8px;float:right', muRSVP='margin-top:6px;font-size:13.5px', muHosts='margin-top:6px;display:inline-block;width:100%;color:rgba(0,0,0,0.54);font-size:13px';
