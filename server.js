@@ -1,5 +1,5 @@
 //Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.1.1';
+const VERSION='v3.1.2';
 
 'use strict';
 const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('nodemailer'), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
@@ -180,7 +180,7 @@ function initCli(sck) {
 		for(let i=0,a,e=0,l=aList.length; i<l; i++) {
 			a=aList[i]; if(a.length !== 3) e="Invalid Length";
 			if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
-			if(tyS(a[1]) || a[0].length > 40) e="Level Invalid";
+			if(tyS(a[1]) || a[1].length > 40) e="Level Invalid";
 			if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
 			if(e) return ack(sck,EV,"Bad input: attendeeList["+i+"]: "+e);
 		}
