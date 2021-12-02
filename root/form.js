@@ -1,4 +1,4 @@
-//Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
+//Instructor Form ©2021 Pecacheu. GNU GPL v3.0
 
 'use strict';
 let FormType="Instructor Formbot";

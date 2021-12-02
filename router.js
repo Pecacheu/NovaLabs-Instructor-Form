@@ -1,10 +1,9 @@
-//This work is licensed under a GNU General Public License, v3.0. Visit http://gnu.org/licenses/gpl-3.0-standalone.html for details.
-//Node.js Webserver Engine v3.14, Copyright (©) 2017 Bryce Peterson (pecacheu@gmail.com)
-
-const path = require("path"), fs = require("fs");
-let debug = false, chalk = null;
-
+//Node.js Webserver Engine v3.2, ©2021 Pecacheu. GNU GPL v3.0
 "use strict";
+
+import path from 'path'; import fs from 'fs'; import url from 'url';
+const root = path.dirname(url.fileURLToPath(import.meta.url));
+let debug, chalk;
 
 const contentTypes = {
 	'.html': "text/html",
@@ -17,56 +16,50 @@ const contentTypes = {
 	'.mp4':  "video/mp4",
 	'.ogg':  "video/ogg",
 	'.webm': "video/webm"
-};
+}, videoTypes = ['.mp4', '.ogg', '.webm'],
+ex = {types:contentTypes, root:root};
 
-const videoTypes = ['.mp4', '.ogg', '.webm'];
-
-function handleRequest(dirPath, uri, response, request, virtualDir) {
-	const file = resolve(dirPath, uri, virtualDir);
-	//Check for file:
+ex.handle = function(dirPath, res, req, virtualDir) {
+	const uri=url.parse(req.url).pathname,
+	file=resolve(dirPath, uri, virtualDir);
 	if(file) {
-		//Read the file:
-		fs.readFile(file, function(err, data) {
+		fs.readFile(file, (err, data) => {
 			if(err) {
 				//Problem Reading File:
-				sendCode(response, 500, err);
+				sendCode(res, 500, err);
 				if(debug) console.log(chalk.red("-- Read error: "+err));
 			} else {
 				//Send File Contents:
-				var headers = {}, respType = 200;
-				var contentType = contentTypes[path.extname(file)];
-				if(contentType) headers["Content-Type"] = contentType;
+				let hdr={}, stat=200, cType=contentTypes[path.extname(file)];
+				if(cType) hdr["Content-Type"] = cType;
 				//Video Files:
 				if(videoTypes.indexOf(path.extname(file)) != -1) {
-					if(request.headers["range"]) {
-						headers["Accept-Ranges"] = "bytes";
-						var range = request.headers["range"].replace('=', ' ');
-						var dataBytes = Buffer.byteLength(data.toString());
-						//headers["Content-Range"] = range+(dataBytes-1)+"/"+dataBytes;
-						headers["Content-Range"] = range+(dataBytes-1)+"/*";
-						headers["Content-Length"] = dataBytes; respType = 206;
+					if(req.headers["range"]) {
+						hdr["Accept-Ranges"] = "bytes";
+						let range=req.headers["range"].replace('=',' '), dl=data.length;
+						hdr["Content-Range"] = range+(dl-1)+"/*";
+						hdr["Content-Length"]=dl; stat=206;
 					}
 				}
-				response.writeHead(respType, headers);
-				response.write(data); response.end();
-				if(debug) logServedFile(file.substring(__dirname.length), contentType);
+				res.writeHead(stat,hdr); res.write(data); res.end();
+				if(debug) logFile(file.substring(root.length), cType);
 			}
 		});
 	} else {
 		//File not found:
-		sendCode(response, 404, "Resource Not Found");
+		sendCode(res, 404, "Resource Not Found");
 		if(debug) console.log(chalk.red("-- File not found"));
 	}
 }
 
-function logServedFile(name, hasType) {
+function logFile(name, hasType) {
 	const typeExtend = (hasType?" with type '"+path.extname(name).substring(1)+"'":'');
 	console.log(chalk.dim("-- Served file '"+name+"'"+typeExtend));
 }
 
 function resolve(rootDir, uri, vDir) {
 	if(uri.indexOf('..') !== -1) return false;
-	let file = path.join(__dirname, processUri(rootDir, uri, vDir));
+	let file = path.join(root, processUri(rootDir, uri, vDir));
 	if(!fs.existsSync(file)) { //File doesn't exist:
 		if(fs.existsSync(file+'.html')) return file+'.html'; else return false;
 	} else if(fs.lstatSync(file).isDirectory()) { //File is directory:
@@ -98,11 +91,11 @@ function parseUriSub(uri, dir) {
 	return null;
 }
 
-function sendCode(resp, code, msg) {
-	resp.writeHead(code);
-	resp.write("<pre style='font-size:16pt'>"+msg+"</pre>");
-	resp.end();
+function sendCode(res, code, msg) {
+	res.writeHead(code);
+	res.write("<pre style='font-size:16pt'>"+msg+"</pre>");
+	res.end();
 }
 
-exports.handleRequest = handleRequest; exports.types = contentTypes;
-Object.defineProperty(exports, 'debug', {get:function(db) { if(db) chalk = require('chalk'); debug = db; }});
+Object.defineProperty(ex, 'debug', {set:d => {if(debug=d) import('chalk').then(c => chalk=c.default)}});
+export default ex;

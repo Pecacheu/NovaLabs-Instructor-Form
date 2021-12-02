@@ -1,9 +1,11 @@
-//Node.js Auto Loader v3.4, Copyright (©) 2019 Bryce Peterson (pecacheu@gmail.com)
-"use strict";
+//Nodejs AutoLoader v3.5, ©2021 Pecacheu. GNU GPL v3.0
+'use strict';
 
-const os = require('os'), fs = require('fs'), dns = require('dns'),
-http = require('http'), exec = require('child_process').execFile;
-let sysOS, sysArch, sysCPU; getOS();
+import os from 'os'; import fs from 'fs'; import dns from 'dns';
+import http from 'http'; import {spawn} from 'child_process';
+import {dirname} from 'path'; import {fileURLToPath} from 'url';
+let ind, dir=dirname(fileURLToPath(import.meta.url)),
+sysOS, sysArch, sysCPU; getOS();
 
 //------------------------------------ CONFIGURATION OPTIONS ------------------------------------
 
@@ -12,66 +14,61 @@ deleteDir = false, //<- Delete Entire Module Directory and Reinstall if Incomple
 autoInstallOptionals = true, //<- Also Install Optional Packages During Required Package Installation
 npmInstallNames = ["chalk", "socket.io", "nodemailer", "string-strip-html", "argon2"], //<- Dependencies List
 optionalInstall = [], //<- Optional Dependencies
-externalFiles = [], //<- Optional Site Resources
-extFilePath = "/root/resources/"; //<- Resource Download Location
+wgetFiles = [], //<- Optional Site Resources
+wgetPath = ""; //<- Resource Download Location
+
+async function doMain() { //<- Main Code
+	const chalk = (await import('chalk')).default;
+	console.log(chalk.gray("All Dependencies Found!\n"));
+	(await import('./server.js')).begin(ipList);
+}
 
 //------------------------------------ END OF CONFIG OPTIONS ------------------------------------
 
 const ipList = getIPList();
-console.log("IP Address List:",ipList,"\nOperating System: "+sysOS+", "+sysArch);
-if(debug) console.log("CPU: "+sysCPU+"\n\nWarning, Debug Mode Enabled.");
-console.log("\nChecking for Dependencies...");
-
-if(verifyDepends()) {
-	//------------------------------------------ MAIN CODE ------------------------------------------
-	const chalk = require('chalk');
-	console.log(chalk.gray("All Dependencies Found!\n"));
-	require("./server").begin(ipList);
-	//-------------------------------------- END OF MAIN CODE ---------------------------------------
-} else {
-	console.log("Dependencies Missing!\n");
-	runJSLoader();
-}
-
-//Auto Installer Functions:
+console.log("IP:",ipList,"OS: "+sysOS+", "+sysArch+"\nCPU: "+sysCPU+'\n'+
+(debug?"Warning, Debug Mode Enabled.\n":'')+"\nChecking Packages...");
+if(verifyDepends()) doMain(); else runJSLoader();
 
 function verifyDepends() {
+	let v=process.version; if(!(Number(v.substr(1,v.indexOf('.')-1)) >= 14))
+		console.log("Nodejs",v,"too old, please update to >= v14!"),process.exit();
 	if(process.argv.length > 2 && process.argv[2] == "reload") { deleteDir=1; return 0; }
 	let p=1; for(let n=0,l=npmInstallNames.length,ns,name; n<l; n++) {
 		ns=npmInstallNames[n].split(" as "), name=ns[0]; if(ns.length > 1) name=ns[1];
-		if(!fs.existsSync(__dirname+"/node_modules/"+name)) { p=0; break; }
+		if(!fs.existsSync(dir+"/node_modules/"+name)) { p=0; break; }
 	}
-	for(let n=0,l=externalFiles.length,fn; n<l; n++) {
-		fn=externalFiles[n]; fn=fn.substr(fn.lastIndexOf('/')+1);
-		if(!fs.existsSync(extFilePath+fn)) { p=0; break; }
+	if(!wgetPath.endsWith('/')) wgetPath+='/';
+	for(let n=0,l=wgetFiles.length,fn; n<l; n++) {
+		fn=wgetFiles[n]; fn=fn.substr(fn.lastIndexOf('/')+1);
+		if(!fs.existsSync(wgetPath+fn)) { p=0; break; }
 	}
 	return p;
 }
 
-let ind;
 function runJSLoader() {
-	console.log("Starting Installer...\n");
-	checkInternet((res) => {
-		if(!res) { console.log("Error: No Internet Connection Detected!"); process.exit(); return; }
-		if(externalFiles.length) {
-			console.log("Downloading Resources..."); mkDir(__dirname+extFilePath,1);
-			ind=0; http.get(externalFiles[ind], httpRes);
+	console.log("Dependencies Missing!\n");
+	checkInternet(res => {
+		if(!res) console.log("Error: No Internet Connection!"),process.exit();
+		if(wgetFiles.length) {
+			console.log("Downloading Resources..."); mkDir(dir+wgetPath,1);
+			ind=0; http.get(wgetFiles[ind], httpRes);
 		} else doInstall();
 	});
 }
 
 function httpRes(rs) {
-	let fn=externalFiles[ind]; fn=fn.substr(fn.lastIndexOf('/')+1);
-	let file = fs.createWriteStream(__dirname+extFilePath+fn); rs.pipe(file);
+	let fn=wgetFiles[ind]; fn=fn.substr(fn.lastIndexOf('/')+1);
+	let file = fs.createWriteStream(dir+wgetPath+fn); rs.pipe(file);
 	file.on('finish', () => {
-		console.log("Downloaded '"+fn+"'");
-		if(++ind == externalFiles.length) { console.log(); doInstall(); }
-		else http.get(externalFiles[ind], httpRes);
+		console.log("Downloaded",fn);
+		if(++ind == wgetFiles.length) console.log(),doInstall();
+		else http.get(wgetFiles[ind], httpRes);
 	});
 }
 
 function doInstall() {
-	if(deleteDir) { console.log("Deleting Install Directory...\n"); remDir(__dirname+"/node_modules"); }
+	if(deleteDir) { console.log("Deleting Install Directory..."); remDir(dir+"/node_modules"); }
 	console.log("Installing Node.js Modules...");
 	if(autoInstallOptionals) Array.prototype.push.apply(npmInstallNames, optionalInstall);
 	ind=0; installRun();
@@ -79,17 +76,16 @@ function doInstall() {
 
 function installRun() {
 	if(ind == npmInstallNames.length) {
-		remDir(__dirname+"/package-lock.json");
-		console.log("Installer Finished. Exiting..."); process.exit(); return;
+		remDir(dir+"/package-lock.json");
+		console.log("Installer Finished. Exiting..."); process.exit();
 	}
 	let ns=npmInstallNames[ind].split(" as "),mod=ns[0],inst=mod; if(ns.length > 1) mod=ns[1];
-	ind++; if(deleteDir || !fs.existsSync(__dirname+"/node_modules/"+mod)) {
-		console.log("Installing NPM Module: "+mod+"\n");
-		let cmd = exec(sysOS=="Windows"?"npm.cmd":"npm", ["install",inst], {cwd:__dirname});
-		cmd.stdout.pipe(process.stdout); cmd.stderr.pipe(process.stdout);
-		cmd.on('error', (e) => { console.error("Error: "+e); cmd.removeAllListeners(); });
-		cmd.on('close', () => { console.log("Module '"+mod+"' Installed.\n"); installRun(); });
-	} else { console.log("Skipping '"+mod+"' Module.\n"); installRun(); }
+	ind++; if(deleteDir || !fs.existsSync(dir+"/node_modules/"+mod)) {
+		console.log("Installing",mod);
+		let cmd=spawn('npm', ['i',inst], {cwd:dir, windowsHide:true, shell:true, stdio:'inherit'});
+		cmd.on('error', e => { if(e) console.error(e); cmd.removeAllListeners(); });
+		cmd.on('close', c => { if(!c) console.log(mod,"Installed."),installRun(); });
+	} else console.log("Skipping",mod),installRun();
 }
 
 function mkDir(path, noDel) {
@@ -106,26 +102,26 @@ function remDir(p,c) {
 	let d=fs.readdirSync(p); for(let s in d) remDir(p+"/"+d[s],1); fs.rmdirSync(p);
 }
 
-function checkInternet(cb) { dns.resolve("www.google.com", (e) => {cb(!e)}); }
+function checkInternet(cb) { dns.resolve("google.com", e => {cb(!e)}); }
 function getIPList() {
 	const ip=[], fl=os.networkInterfaces();
-	for(let k in fl) fl[k].forEach((f) => { if(!f.internal && f.family == "IPv4"
-	&& f.mac != "00:00:00:00:00:00" && f.address) ip.push(f.address); });
+	for(let k in fl) fl[k].forEach(f => { if(!f.internal && f.family == 'IPv4'
+	&& f.mac != '00:00:00:00:00:00' && f.address) ip.push(f.address); });
 	return ip.length?ip:0;
 }
 
 function getOS() {
 	switch(os.platform()) {
-		case "win32": sysOS = "Windows"; break;
-		case "darwin": sysOS = "Macintosh OS"; break;
-		case "linux": sysOS = "Linux"; break;
-		default: sysOS = os.platform();
+		case "win32": sysOS="Windows"; break;
+		case "darwin": sysOS="MacOS"; break;
+		case "linux": sysOS="Linux"; break;
+		default: sysOS=os.platform();
 	}
 	switch(os.arch()) {
-		case "ia32": sysArch = "32-bit"; break;
-		case "x64": sysArch = "64-bit"; break;
-		case "arm": sysArch = "ARM"; break;
-		default: sysArch = os.arch();
+		case "ia32": sysArch="32-bit"; break;
+		case "x64": sysArch="64-bit"; break;
+		case "arm": sysArch="ARM"; break;
+		default: sysArch=os.arch();
 	}
-	sysCPU = os.cpus()[0].model;
+	sysCPU=os.cpus()[0].model;
 }

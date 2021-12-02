@@ -1,9 +1,11 @@
-//Instructor Form, Copyright (©) 2021 Bryce Peterson (pecacheu@gmail.com); GNU GPL v3.0
-const VERSION='v3.1.2';
-
+//Instructor Form ©2021 Pecacheu. GNU GPL v3.0
+const VERSION='v3.2';
 'use strict';
-const router=require('./router'), fs=require('fs'), https=require('https'), url=require('url'), chalk=require('chalk'), sio=require('socket.io'), mail=require('nodemailer'), stripHtml=require('string-strip-html').stripHtml, argon2=require('argon2');
-let Cli={}, ServerIp, Mailer;
+
+import router from './router.js'; import fs from 'fs'; import https from 'https'; import url from 'url';
+import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
+import {stripHtml} from 'string-strip-html'; import argon2 from 'argon2';
+let Cli={}, SrvIp, Mailer;
 
 //Config Options:
 const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
@@ -26,9 +28,9 @@ AccAddr=['formbot-events-relay@nova-labs.org'], MemAddr='formbot-membership-rela
 const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
 ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
 
-exports.begin = ips => {
+export function begin(ips) {
 	console.log(chalk.yellow("FormBot "+VERSION));
-	ServerIp=(ips?ips[0]:'localhost'); if(Debug == 2) router.debug=Debug;
+	SrvIp=(ips?ips[0]:'localhost'); if(Debug == 2) router.debug=Debug;
 	getAuth().then(initMail).catch(e => console.log(chalk.bgRed("AuthKey"),e));
 }
 
@@ -119,16 +121,15 @@ function httpsReq(uri, mt, hdr, rb) {
 }
 
 function startServer() {
-	function onReq(req, resp) {
-		let uri=url.parse(req.url), pn=uri.pathname;
-		if(Debug) console.log("[ROUTER]",pn);
-		router.handleRequest(Path,pn,resp,req);
+	function onReq(req, res) {
+		if(Debug) console.log("[ROUTER]",req.url);
+		router.handle(Path,res,req);
 	}
 	let srv=https.createServer(SrvOpt,onReq).listen(Port, () => {
-		console.log("Listening at "+chalk.bgGreen('https://'+ServerIp+':'+Port)+'\n');
+		console.log("Listening at "+chalk.bgGreen('https://'+SrvIp+':'+Port)+'\n');
 	});
 	//Init Socket.io
-	sio(srv).on('connection', sck => {
+	new io(srv).on('connection', sck => {
 		sck.adr=sck.handshake.address.substr(7);
 		console.log(chalk.cyan("[SCK] Establishing connection..."));
 		sck.on('disconnect', () => {
@@ -269,7 +270,7 @@ function runInput() {
 	console.log("Type 'list' to list clients. Type 'q' to quit.");
 	process.stdin.resume(); process.stdin.setEncoding('utf8');
 	process.stdin.on('data', cmd => {
-		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd = cmd.substring(0,s);
+		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd=cmd.substring(0,s);
 		if(cmd == 'exit' || cmd == 'q') {
 			console.log(chalk.magenta("Exiting...")); process.exit();
 		} else if(cmd == 'list') {
