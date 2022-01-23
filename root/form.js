@@ -44,8 +44,7 @@ function bgRun() {
 }
 
 function bgScale(f) {
-	utils.updateSize(); let w=utils.width, h=utils.height, dw=bgBox.w-w, dh=bgBox.h-h,
-	r=(window.devicePixelRatio||1)/2; if(r<1) r=1;
+	let w=utils.w, h=utils.h, dw=bgBox.w-w, dh=bgBox.h-h, r=(devicePixelRatio||1)/2; if(r<1) r=1;
 	if(f!=1 && bgBox.r==r && dw>=0 && dw<300 && dh>=0 && dh<300) return;
 	let s=bgBox.style; w+=50,h+=50; s.width=bgBox.w=w, s.height=bgBox.h=h,
 	bgBox.width=w*r, bgBox.height=h*r, bgBox.r=r;
@@ -376,5 +375,5 @@ window.test = function() {
 
 	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fPay.onchange(); fType.value='sgn';
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
-	window.scrollTo(0,9999); return "EXECUTING TEST...";
+	scrollTo(0,9999); return "EXECUTING TEST...";
 }

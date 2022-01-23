@@ -1,5 +1,5 @@
 //Instructor Form ©2021 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2.1';
+const VERSION='v3.2.2';
 'use strict';
 
 import router from './router.js'; import fs from 'fs'; import https from 'https'; import url from 'url';
@@ -8,7 +8,7 @@ import {stripHtml} from 'string-strip-html'; import argon2 from 'argon2';
 let Cli={}, SrvIp, Mailer;
 
 //Config Options:
-const Debug=false, Port=8020, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+const Debug=false, Port=443, Path="/root", SendTimeout=15000, ReqTimeout=5000,
 PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
 SrvOpt = {key:fs.readFileSync('../snap/keys/privkey.pem'), cert:fs.readFileSync('../snap/keys/fullchain.pem')};
 
