@@ -1,5 +1,5 @@
 //Instructor Form ©2021 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2';
+const VERSION='v3.2.1';
 'use strict';
 
 import router from './router.js'; import fs from 'fs'; import https from 'https'; import url from 'url';
@@ -61,7 +61,7 @@ function initMail() {
 function getEvent(sk,ev) {
 	const EV='getEvent';
 	getEvData(ev).then(evm => {
-		console.log("Got Event "+ev);
+		console.log("Got Event",ev);
 		EvLoad=0; ack(sk,EV,(sk.evm=evm));
 	}).catch(e => {
 		EvLoad=0; ack(sk,EV,ev+": "+e);
@@ -69,7 +69,7 @@ function getEvent(sk,ev) {
 }
 async function getEvData(ev) {
 	const hd={Authorization:"Bearer "+ATkn};
-	d=await httpsReq(ApiUri+AUsr+"/events/"+ev, 'GET', hd);
+	let d=await httpsReq(ApiUri+AUsr+"/events/"+ev, 'GET', hd),
 	dr=await httpsReq(ApiUri+AUsr+"/eventregistrations?eventId="+ev, 'GET', hd);
 	//Parse:
 	d=JSON.parse(d), dr=JSON.parse(dr);
@@ -166,15 +166,16 @@ function initCli(sck) {
 		.catch(e => { EvLoad=0,ack(sck,EV,"Auth "+e); });
 	});
 
-	sck.on('sendForm', (title, date, uName, uMail, data, aList, sType) => {
+	sck.on('sendForm', (title, date, uName, uMail, pdf, aList, sType) => {
 		const EV='sendForm';
 		//Error Checking:
 		if(tyS(title) || title.length > 80 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
+		if(title.indexOf(':') == -1 || Number(title)) return ack(sck,EV,"Invalid title! Did you mean to auto-fill via class ID? To auto-fill, please select the name field again and press ENTER or ⏎");
 		if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(sck,EV,"Bad input: date");
 		if(tyS(uName) || !pText.test(uName)) return ack(sck,EV,"Bad input: instructorName");
 		if(tyS(uMail) || !pEmail.test(uMail)) return ack(sck,EV,"Bad input: instructorMail");
-		if(tyS(data) || data.length < 1) return ack(sck,EV,"Bad input: data");
-		if(data.length > 20000) return ack(sck,EV,"Data exceeded maximum length (20000)");
+		if(tyS(pdf) || pdf.length < 1) return ack(sck,EV,"Bad input: pdf");
+		if(pdf.length > 20000) return ack(sck,EV,"Pdf exceeded max size 20KB");
 		if(!Array.isArray(aList) || aList.length > 200) return ack(sck,EV,"Bad input: attendeeList");
 		if(!(sType >= 0) || sType && !aList.length) return ack(sck,EV,"Bad input: sType");
 		//Attendee List Error Checking:
@@ -200,7 +201,7 @@ function initCli(sck) {
 		for(let i in al) {
 			let a=al[i]; console.log("-",chalk.yellow(a));
 			Mailer.sendMail({
-				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:data}]
+				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:pdf}]
 			}, (e,r) => {
 				if(e) { tStop(); return ack(sck,EV,"Failed to send to "+a+": "+e); }
 				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",r.response);
@@ -219,8 +220,6 @@ function initCli(sck) {
 }
 
 function tyS(v) { return typeof v != 'string'; }
-function tyN(v) { return typeof v != 'number'; }
-function tyO(v) { return typeof v != 'object'; }
 
 const tStyle='overflow:hidden;max-width:1000px;color:#888;border-radius:10px;width:100%;border-collapse:collapse;background:#f5f5f5;box-shadow:2px 2px 2px rgba(0,0,0,0.3);font-size:16px;table-layout:fixed', tdStyle='border-top:1px solid #eee;padding:9px 12px;line-height:15px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden', trFirstStyle='border-top:none;background:#eee', trEvenStyle="style='background:#dcdcdc'", nameStyle='font-weight:700', mailStyle='color:#5299e2;font-weight:500', userStyle='text-align:right';
 
