@@ -1,6 +1,4 @@
 //Node.js Webserver Engine v3.2, ©2021 Pecacheu. GNU GPL v3.0
-"use strict";
-
 import path from 'path'; import fs from 'fs'; import url from 'url';
 const root = path.dirname(url.fileURLToPath(import.meta.url));
 let debug, chalk;

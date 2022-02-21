@@ -1,6 +1,4 @@
 //Nodejs AutoLoader v3.5, ©2021 Pecacheu. GNU GPL v3.0
-'use strict';
-
 import os from 'os'; import fs from 'fs'; import dns from 'dns';
 import http from 'http'; import {spawn} from 'child_process';
 import {dirname} from 'path'; import {fileURLToPath} from 'url';
