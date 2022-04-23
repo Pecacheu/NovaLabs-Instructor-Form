@@ -1,7 +1,7 @@
 //Instructor Form ©2021 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2.2';
+const VERSION='v3.2.3';
 
-import router from './router.js'; import fs from 'fs'; import https from 'https'; import url from 'url';
+import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
 import {stripHtml} from 'string-strip-html'; import argon2 from 'argon2';
 let Cli={}, SrvIp, Mailer;
@@ -9,10 +9,10 @@ let Cli={}, SrvIp, Mailer;
 //Config Options:
 const Debug=false, Port=443, Path="/root", SendTimeout=15000, ReqTimeout=5000,
 PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
-SrvOpt = {key:fs.readFileSync('../snap/keys/privkey.pem'), cert:fs.readFileSync('../snap/keys/fullchain.pem')};
+SrvKey='../snap/keys/privkey.pem', SrvCert='../snap/keys/fullchain.pem';
 
 //Filter Patterns:
-const pTitle=/^[\w\-:.<>()[\]&*%!, ]+$/, pText=/^[\w\+\-(). ]+$/,
+const pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
 pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/;
 
 //Messages:
@@ -25,7 +25,10 @@ AccAddr=['formbot-events-relay@nova-labs.org'], MemAddr='formbot-membership-rela
 
 //Auth Keys:
 const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
-ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad;
+ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad,SrvOpt;
+
+try {SrvOpt={key:fs.readFileSync(SrvKey), cert:fs.readFileSync(SrvCert)}}
+catch(e) {console.log(chalk.dim("Warning: Could not load certificates! HTTPS disabled"))}
 
 export function begin(ips) {
 	console.log(chalk.yellow("FormBot "+VERSION));
@@ -124,8 +127,8 @@ function startServer() {
 		if(Debug) console.log("[ROUTER]",req.url);
 		router.handle(Path,res,req);
 	}
-	let srv=https.createServer(SrvOpt,onReq).listen(Port, () => {
-		console.log("Listening at "+chalk.bgGreen('https://'+SrvIp+':'+Port)+'\n');
+	let srv=(SrvOpt?https.createServer(SrvOpt,onReq):http.createServer(onReq)).listen(Port, () => {
+		console.log(`Listening at ${chalk.bgGreen(`http${SrvOpt?'s':''}://${SrvIp}:${Port}`)}\n`);
 	});
 	//Init Socket.io
 	new io(srv).on('connection', sck => {
@@ -136,7 +139,7 @@ function startServer() {
 			console.log(chalk.red("[SCK] Connection dropped!"));
 		});
 		function badPwd(p,e) {
-			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,"'"+p+"'",e||'');
+			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,`'${p}'`,e||'');
 			return setTimeout(() => sck.emit('badPwd'), 1000);
 		}
 		sck.once('type', (cType, pwd) => {
@@ -151,15 +154,15 @@ function startServer() {
 
 function initCli(sck) {
 	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
-	console.log(chalk.yellow("[SCK] New client",sck.adr,"{type="+sck.type+",id="+sck.ind+"}"));
+	console.log(chalk.yellow("[SCK] New client",sck.adr,`{type=${sck.type},id=${sck.ind}}`));
 
 	if(Debug) console.log("clientList:",logClientList());
-	sck.cliLog = (clr, msg) => {console.log(chalk[clr]("["+sck.type+":"+sck.ind+"] "+msg))}
+	sck.cliLog = (clr, msg) => {console.log(chalk[clr](`[${sck.type}:${sck.ind}] `+msg))}
 	sck.cliErr = msg => {sck.cliLog('red',msg)}
 
 	sck.on('getEvent', ev => {
 		const EV='getEvent';
-		if(!ev || tyS(ev) || ev.length > 20) return ack(sck,EV,"Invalid event '"+ev+"'");
+		if(!ev || tyS(ev) || ev.length > 20) return ack(sck,EV,"Invalid event "+ev);
 		if(EvLoad) return ack(sck,EV,"Server busy"); EvLoad=1;
 		if(ATkn) getEvent(sck,ev); else getAuth().then(() => getEvent(sck,ev))
 		.catch(e => { EvLoad=0,ack(sck,EV,"Auth "+e); });
@@ -186,7 +189,7 @@ function initCli(sck) {
 			if(e) return ack(sck,EV,"Bad input: attendeeList["+i+"]: "+e);
 		}
 
-		sck.cliLog('yellow',"("+EV+") Submitting '"+title+"'...");
+		sck.cliLog('yellow',`(${EV}) Submitting '${title}'...`);
 		let t=setTimeout(() => { ack(sck,EV,"Failed to send email: Timed out!"); }, SendTimeout);
 		function tStop() { if(t) clearTimeout(t),t=0; }
 
@@ -200,9 +203,9 @@ function initCli(sck) {
 		for(let i in al) {
 			let a=al[i]; console.log("-",chalk.yellow(a));
 			Mailer.sendMail({
-				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:"<body style='"+MsgStyle+"'><p><b>"+MsgHeader+"</b></p>"+ev+aTab+"<br>Formbot "+VERSION+" by <a href='https://github.com/pecacheu'>Pecacheu</a></body>", attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:pdf}]
+				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:`<body style='${MsgStyle}'><p><b>${MsgHeader}</b></p>${ev+aTab}<br>Formbot ${VERSION} by <a href='https://github.com/pecacheu'>Pecacheu</a></body>`, attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:pdf}]
 			}, (e,r) => {
-				if(e) { tStop(); return ack(sck,EV,"Failed to send to "+a+": "+e); }
+				if(e) { tStop(); return ack(sck,EV,`Failed to send to ${a}: `+e); }
 				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",r.response);
 				if(ok >= al.length-1) { tStop(); ack(sck,EV); } else ok++;
 			});
@@ -237,20 +240,20 @@ const muEvent='width:550px;overflow:hidden;font-size:16px;border-radius:8px;padd
 function genEvent(ev) {
 	if(!ev) return "<p>FormBot Couldn't Find This Event.</p>";
 	try { let eh=ev.hosts, hc="Hosted By: "; for(let i=0,l=eh.length; i<l; i++)
-		hc += (i?', ':'')+"<a href='"+ev.link+"' target='_blank' style='"+muLink+muVen+"'>"+eh[i].name+"</a>";
-	return "<p>FormBot Thinks This Event Is:</p><div style='"+muEvent+"'><a style='"+muLink+muTitle+"' href='"+ev.link+"' target='_blank'>"+ev.name+"</a><div style='"+muDetail+"'><a style='"+muLink+muVen+"' href='"+ev.link+"' target='_blank'>"+ev.ven+"</a><div style='"+muSub+"'>"+ev.loc+"</div><div style='"+muDesc+"'>"+ev.desc+"</div></div><div style='"+muMeta+"'><div style='"+muSub+';margin-bottom:6px'+"'>100% Match</div><div>"+ev.time+"</div><div style='"+muSub+"'>"+ev.date+"</div><div style='"+muRSVP+"'>"+ev.yes+" Attendees<br>"+ev.wait+" Waitlist</div><div style='margin-top:6px'>"+ev.fee+"</div></div><div style='"+muHosts+"'>"+hc+"</div></div>";
+		hc+=(i?', ':'')+`<a href='${ev.link}' target='_blank' style='${muLink+muVen}'>${eh[i].name}</a>`;
+	return `<p>FormBot Thinks This Event Is:</p><div style='${muEvent}'><a style='${muLink+muTitle}' href='${ev.link}' target='_blank'>${ev.name}</a><div style='${muDetail}'><a style='${muLink+muVen}' href='${ev.link}' target='_blank'>${ev.ven}</a><div style='${muSub}'>${ev.loc}</div><div style='${muDesc}'>${ev.desc}</div></div><div style='${muMeta}'><div style='${muSub+';margin-bottom:6px'}'>100% Match</div><div>${ev.time}</div><div style='${muSub}'>${ev.date}</div><div style='${muRSVP}'>${ev.yes} Attendees<br>${ev.wait} Waitlist</div><div style='margin-top:6px'>${ev.fee}</div></div><div style='${muHosts}'>${hc}</div></div>`;
 	} catch(e) { return [e.toString()]; }
 }
 
 function ack(cli, eType, stat) {
 	if(tyS(stat)) { cli.cliLog('green',"ACK true"); cli.emit('ack',eType,true,stat); }
-	else { cli.cliErr("("+eType+") "+stat); cli.emit('ack',eType,false,stat); }
+	else { cli.cliErr(`(${eType}) `+stat); cli.emit('ack',eType,false,stat); }
 }
 
 function logClientList() {
 	let ck=Object.keys(Cli), s="";
 	for(let t=0,k=ck.length,cl; t<k; t++) {
-		s += (t==0?"":", ")+"'"+ck[t]+"':["; cl=Cli[ck[t]];
+		s += (t==0?"":", ")+`'${ck[t]}':[`; cl=Cli[ck[t]];
 		for(let i=0,l=cl.length; i<l; i++) s += (i==0?"":",")+cl[i].adr;
 		s += "]";
 	}

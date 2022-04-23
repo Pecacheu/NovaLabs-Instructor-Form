@@ -154,13 +154,8 @@ function initLayout() {
 	}
 	let fd=document.getElementsByClassName('field');
 	for(let i=0,l=fd.length,f; i<l; i++) {
-		f=fd[i]; f.addEventListener('focus',rstForm);
-		let p=f.getAttribute('charPattern'); if(p) { //RegEx Parse:
-			p=new RegExp(p); f.onkeypress = e => {
-				let k=e.key; if(k.length != 1) return;
-				if(!p.test(k)) e.preventDefault();
-			}
-		}
+		(f=fd[i]).addEventListener('focus',rstForm);
+		charPat(f, f.getAttribute('charPattern'));
 	}
 	//Event Autofill:
 	fTitle.onkeypress = (e) => { if(e.key == 'Enter') getEv(); }
@@ -172,8 +167,8 @@ function initLayout() {
 	muApply.onclick = () => {
 		if(!EvData) return;
 		fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
-		let h=EvData.hosts[0]; fName.value=h.name, fMail.value=h.email;
-		fAdc.selectedIndex=0; fCost.set(EvData.fRaw); fCount.set(EvData.yes);
+		let h=EvData.hosts[0]; fName.value=h.name; fAdc.selectedIndex=0;
+		fCost.set(EvData.fRaw); fCount.set(EvData.yes);
 		fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
 		if(r.length != a.length-1) return showInfo("Error: RSVP Mismatch");
 		for(let i=1,l=a.length,u,s; i<l; i++) {
@@ -199,6 +194,12 @@ function initLayout() {
 		}
 	}
 }
+function charPat(f,p) {
+	if(!p) return;
+	p=new RegExp(p); f.addEventListener('keypress',e => {
+		let k=e.key; if(k.length==1 && !p.test(k)) e.preventDefault();
+	});
+}
 
 function getEv() {
 	if(Number(fTitle.value) > 0) showInfo("Loading..."),Socket.emit('getEvent',fTitle.value);
@@ -219,8 +220,8 @@ const SEL = "<select class=field>\
 </select>";
 
 function layoutMakeRow() {
-	let r=utils.mkEl('tr');
-	utils.mkEl('td',r,'name',null,"<input type=text onfocus=rstForm()>");
+	let r=utils.mkEl('tr'), nf=utils.mkEl('td',r,'name',null,"<input type=text onfocus=rstForm()>").firstChild;
+	charPat(nf, fName.getAttribute('charPattern'));
 	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm()>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
 	let f=utils.costField(utils.mkEl('input',utils.mkEl('td',r,'user')));

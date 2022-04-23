@@ -18,11 +18,11 @@
 		<h1 id="header" style="text-align:center">Loading Page</h1>
 		<h5>Instructor Payment &amp; Maker Sign-off</h5>
 		<h4>Class Info</h4>
-		<p>Event Name/ID: <input id="fTitle" class="field" type="text" charPattern="[\w\-: ]" placeholder="Example Class"> (Use approved name)</p>
+		<p>Event ID: <input id="fTitle" class="field" type="text" charPattern="[\w\-:.<>()[\]&*%!', ]" title="Obtain ID at wautils.nova-labs.org"> <span style="font-size:14pt">(Use event name for Ad-Hoc class)</span></p>
 		<p id="muMatch"></p>
 		<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
 		<p>Class Date: <input id="fDate" class="field" type="datetime-local"></p>
-		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w ]"></p>
+		<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w\+\-()'. ]"></p>
 		<p><span id="pem">PayPal Email</span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"></p>
 		<p>Payment: <select id="fPay" class="field">
 			<option value="pap">PayPal</option>
@@ -35,13 +35,12 @@
 			<option value="mkr">Project (No Sign-Off)</option>
 			<option value="sgn">Tool Sign-Off</option>
 			<option value="ssn">Safety Sign-Off - Supervised Access</option>
-			<!--<option value="cus">Negotiated Rate</option>-->
 		</select> <select id="fAdc" class="field">
 			<option selected value="">On Events Portal</option><option value="a">Ad-Hoc</option>
 		</select></p>
 		<p><span id="fCostText">Cost/Student</span>: <input id="fCost" class="field"></p>
 		<p>Students: <input id="fCount" class="field"></p>
-		<p>Materials: <input id="fMatCost" class="field"> (Direct expenses for this class)</p>
+		<p>Materials: <input id="fMatCost" class="field"> <span style="font-size:14pt">(Direct class expenses)</span></p>
 		<p hidden>NovaLabs Rate: <input id="fRate" class="field"></p>
 		<h6 id="fRateInfo">30% NovaLabs Rate</h6>
 		<button id="sButton" style="margin:1em 0">Preview Summary</button>
