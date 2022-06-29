@@ -170,9 +170,9 @@ function initLayout() {
 		let h=EvData.hosts[0]; fName.value=h.name; fAdc.selectedIndex=0;
 		fCost.set(EvData.fRaw); fCount.set(EvData.yes);
 		fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
-		if(r.length != a.length-1) return showInfo("Error: RSVP Mismatch");
-		for(let i=1,l=a.length,u,s; i<l; i++) {
-			u=r[i-1],s=a[i].children; s[0].firstChild.value=u.name,
+		if(r.length >= a.length) return showInfo("Error: RSVP Count Mismatch");
+		for(let i=0,l=r.length,u,s; i<l; i++) {
+			u=r[i],s=a[i+1].children; s[0].firstChild.value=u.name,
 			s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
 		}
 	}
