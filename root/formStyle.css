@@ -21,6 +21,7 @@ button:active { background:#dcdcdc; color:#000; }
 	text-overflow:ellipsis; font-size:16px; margin:0; padding:0 6px; display:inline-block;
 	/*-webkit-appearance:none; -moz-appearance:none; appearance:none;*/
 }
+.field:disabled { background:#888; color:#bbb; }
 .field option:disabled { color:#ccc; }
 input[type=email] { color:#5299e2; }
 

@@ -88,8 +88,8 @@ function ioInit(t, con, dCon, idx) {
 			setTimeout(() => {location.reload()}, 1000);
 		});
 		Socket.on('connection', (id,ver) => {
-			Socket.on('disconnect', () => { if(dCon) dCon(); ioReset(); });
-			Socket.on('id', id => { Socket.id=id; if(idx) idx(id); });
+			Socket.on('disconnect', () => {if(dCon) dCon(); ioReset()});
+			Socket.on('id', id => {Socket.id=id; if(idx) idx(id)});
 			if(vId.v && vId.v != ver) location.reload(); vId.v=ver;
 			console.log("Connected",vId.textContent=ver);
 			con(Socket.id=id); Socket.c=1;
@@ -111,9 +111,10 @@ function formLoad() {
 	ioInit('form', () => { //Connect:
 		statusMsg(); if(!Socket.c) { //First:
 			location.hash='';
-			utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
-			if(location.search.length > 1) {
-				fTitle.value = location.search.substr(1); getEv();
+			utils.setCookie('pwd',Pwd,Date.now()+PwdExp); //FIXME TEMP <----------------------------------
+			if(location.search.length>1) {
+				fAdc.value='p'; fAdc.onchange();
+				fTitle.value=location.search.substr(1); getEv();
 			}
 		}
 		Socket.on('ack', (ev, stat, e) => {
@@ -144,10 +145,16 @@ function initLayout() {
 		}
 	}
 	//Form Interaction:
-	fPay.onchange = () => {
-		pem.textContent = (fPay.value=='pap'?"PayPal ":'')+"Email";
-		fDon.parentNode.hidden = (fPay.value!='don');
+	fAdc.onchange = () => {
+		Ein.textContent = fAdc.value=='a'||EvData?"Name":"ID";
+		let p=fAdc.value=='p'; fTitle.disabled=p&&EvData;
+		fCount.disabled=fType.disabled=fDate.disabled=fCost.disabled=p;
+		clsData.hidden=0;
 	}
+	(fPay.onchange = () => {
+		Pem.textContent = (fPay.value=='pap'?"PayPal ":'')+"Email";
+		fDon.parentNode.hidden = (fPay.value!='don');
+	})();
 	fCost.onnuminput = () => {
 		let v=fCost.num, a=aTable.children;
 		for(let i=1,l=a.length; i<l; i++) a[i].children[3].firstChild.set(v);
@@ -158,16 +165,18 @@ function initLayout() {
 		charPat(f, f.getAttribute('charPattern'));
 	}
 	//Event Autofill:
-	fTitle.onkeypress = (e) => { if(e.key == 'Enter') getEv(); }
-	fTitle.oninput = (e) => { if(e.inputType == 'insertFromPaste' || !e.inputType) getEv(); }
+	fTitle.onkeypress = (e) => {if(e.key == 'Enter') getEv()}
+	fTitle.oninput = (e) => {if(e.inputType == 'insertFromPaste' || !e.inputType) getEv()}
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
 		muReject.hidden=muApply.hidden=1; EvData=null;
+		fTitle.value=''; fAdc.onchange();
 	}
+	const nCont=s => EvData._ln.indexOf(s)!=-1;
 	muApply.onclick = () => {
 		if(!EvData) return;
 		fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
-		let h=EvData.hosts[0]; fName.value=h.name; fAdc.selectedIndex=0;
+		let h=EvData.hosts[0]; fName.value=h.name; fAdc.value='p';
 		fCost.set(EvData.fRaw); fCount.set(EvData.yes);
 		fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
 		if(r.length >= a.length) return showInfo("Error: RSVP Count Mismatch");
@@ -175,10 +184,14 @@ function initLayout() {
 			u=r[i],s=a[i+1].children; s[0].firstChild.value=u.name,
 			s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
 		}
+		if(nCont("_t") || nCont("safety")) fType.value='ssn';
+		else if(nCont("_s") || nCont("sign-off") || nCont("sign off")) fType.value='sgn';
+		else fType.value='mkr';
 	}
 	//Submit:
 	sButton.onclick = () => {
 		if(PdfSub) return;
+		if(fAdc.value!='a' && !EvData) return showInfo("Error: Please Enter ID");
 		if(PdfData) { //Submit:
 			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
 			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.fromDateTimeBox(fDate)),
@@ -190,7 +203,7 @@ function initLayout() {
 		} else { //Generate PDF:
 			let e=genPdf(); if(e) return showInfo("Form Error: "+e);
 			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,0.8)');
-			sButton.textContent = "Submit PDF";
+			sButton.textContent="Submit PDF";
 		}
 	}
 }
@@ -202,7 +215,8 @@ function charPat(f,p) {
 }
 
 function getEv() {
-	if(Number(fTitle.value) > 0) showInfo("Loading..."),Socket.emit('getEvent',fTitle.value);
+	if(fAdc.value!='p' || !(Number(fTitle.value)>0)) return;
+	showInfo("Loading..."); Socket.emit('getEvent',fTitle.value);
 }
 
 const SEL = "<select class=field>\
@@ -254,9 +268,8 @@ function genEvent(ev,e) {
 	let hl=utils.mkDiv(box, 'muHosts'), hc="Hosted By: ";
 	for(let i=0,l=ev.hosts.length; i<l; i++) hc += (i?', ':'')+"<a href='"
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
-	hl.innerHTML=hc; fTitle.value=ev.name;
-	fDate.value=utils.toDateTimeBox(ev.d);
-	muApply.hidden=0;
+	hl.innerHTML=hc; fTitle.value=ev.name; ev._ln=ev.name.toLowerCase();
+	fDate.value=utils.toDateTimeBox(ev.d); muApply.hidden=0; fAdc.onchange();
 }
 
 //---------------------------------------- PDF Generator ----------------------------------------
@@ -265,7 +278,7 @@ const cTitle='#111133', cMain='#405555', cData='#8888aa',
 cSub='#c05545', cMail='#0065ee', xOff=0.2;
 
 function genPdf() {
-	fTitle.n = fTitle.value+(fAdc.value?" ADHOC":'');
+	fTitle.n = fTitle.value+(fAdc.value=='a'?" [ADHOC]":'');
 	let fT=fTitle.n, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
 	fN=fName.value, fP=selBoxValue(fPay), fF=fDon.value, fM=fMail.value, fC=fCost.num,
 	fY=fType.value, fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
@@ -285,7 +298,7 @@ function genPdf() {
 	for(let i=1,l=a.length,s,n,r,u,p; i<l; i++) {
 		s=a[i].children; n=s[0].firstChild.value, u=s[1].firstChild.value,
 		r=s[2].firstChild, p=s[3].firstChild; if(!n) return "Attendee List ["+(i-1)+"]";
-		sl.push([n+(r.options.selectedIndex?' ('+selBoxValue(r)+')':''),u,p.value]); rt+=p.num;
+		sl.push([n,r.options.selectedIndex?' ('+selBoxValue(r)+')':'',u,p.value]); rt+=p.num;
 	}
 
 	const pdf = new jsPDF({orientation:'portrait', unit:'in', format:[8.5,11]});
@@ -305,22 +318,23 @@ function genPdf() {
 	pdf.setFontSize(40); pdf.setTextColor(cTitle);
 	pdf.text(8.5/2,0.7,FormType,null,null,'center');
 	pdfLine(1.5,'Class Name',fT); pdfLine(2,'Date',fD);
-	pdfLine(3,'Instructor',fN,'#000000');
-	pdfLine(3.5,'Payment',fF?"Donation ("+fF+")":fP);
-	pdfLine(4,'Email',fM,cMail);
+	pdfLine(2.5,'Type',fType.selectedOptions[0].text);
+	pdfLine(3.5,'Instructor',fN,'#000000');
+	pdfLine(4,'Payment',fF?"Donation ("+fF+")":fP);
+	pdfLine(4.5,'Email',fM,cMail);
 
 	//Cost Breakdown:
 	let p=utils.formatCost(rt-fMC), t=(rt-fMC)*((100-fR)/100)+fMC, tt=utils.formatCost(t);
 	//Revenue:
 	pdf.setFontSize(20);
-	if(fMC>0) multiColor(5,cData,utils.formatCost(rt),cSub," Revenue - ",
+	if(fMC>0) multiColor(5.5,cData,utils.formatCost(rt),cSub," Revenue - ",
 	cData,utils.formatCost(fMC),cSub," Materials = ",cData,p,cSub," Profit");
-	else multiColor(5,cData,fS,cSub," Paid Students = ",cData,p,cSub," Class Revenue");
+	else multiColor(5.5,cData,fS,cSub," Paid Students = ",cData,p,cSub," Class Revenue");
 	//Reimbursement:
-	multiColor(5.4,cData,p,cSub," - ",cMain,"("+fR+"% NL Rate)",
+	multiColor(5.9,cData,p,cSub," - ",cMain,"("+fR+"% NL Rate)",
 	cSub,(fMC>0)?" + Materials = ":" = ",cData,tt,cSub," Reimbursement");
 	//Step 3. Profit!
-	multiColor(10.8,cSub,"( Revenue - ",cData,tt,cSub," = ",
+	multiColor(10.7,cSub,"( Revenue - ",cData,tt,cSub," = ",
 	cMain,utils.formatCost(rt-t)+" NovaLabs Profit",cSub," )");
 
 	//Attendee List:
@@ -329,11 +343,12 @@ function genPdf() {
 	pdf.setFontSize(20); pdf.setTextColor(cMain);
 	pdf.text(xOff,1.4,"Name"); pdf.text(4.4,1.4,"Membership");
 	pdf.text(8.5-xOff,1.4,"Payment",null,null,'right');
-	pdf.setFontSize(15); pdf.setTextColor(cTitle);
+	pdf.setFontSize(15);
 	for(let i=0,l=sl.length,off=1.75,s; i<l; i++,off+=0.25) {
-		s=sl[i]; pdf.text(xOff,off,(i+1)+'. '+s[0]); pdf.setTextColor(cMail);
-		pdf.text(4.6,off,s[1].toString()); pdf.setTextColor(cTitle);
-		if(s[2]) pdf.text(8.5-xOff,off,s[2],null,null,'right');
+		s=sl[i]; multiColor(off,cTitle,(i+1)+'. '+s[0],"#ee0000",s[1]);
+		pdf.setTextColor(cMail); pdf.text(4.6,off,s[2].toString());
+		pdf.setTextColor(cTitle);
+		if(s[3]) pdf.text(8.5-xOff,off,s[3],null,null,'right');
 	}
 
 	let f=utils.mkDiv(DB,'pdf'); utils.mkDiv(f,'pdfExit',null,"PDF Preview <i>(Click to exit)</i>");
@@ -364,8 +379,7 @@ function selBoxValue(sb) {
 
 window.test = function() {
 	FormType=FormType.replace('Form','Test'), header.textContent=FormType;
-	let desc = "This is a NovaLabs WA Test event which teaches individuals how to do the stuff and things. This is an introductory class, so please no advanced students. Also, no children ages 12 or below, and no adults 25 or up. We won't be accepting teenagers either, so please leave your teens at home parents! In fact, we may not be taking any humans at all. If you are or know a human, this is not the class for you. You know what, just life in general really is not welcome... But other than that, be sure to come and bring your kids! PS: Sorry for the dead memes.", ev = {name:"How To Do Things 102",id:'lol',link:"https://cataas.com/cat/gif",ven:"Nova Labs",loc:"Your Imagination",fRaw:69,fee:"$69.00",dRaw:"1994-03-21T16:20",wait:0,desc:desc,hosts:[{name:"John Doe",email:"test@example.com",id:0}]};
-
+	let desc = "This is a NovaLabs WA Test event which teaches individuals how to do the stuff and things. This is an introductory class, so please no advanced students. Also, no children ages 12 or below, and no adults 25 or up. We won't be accepting teenagers either, so please leave your teens at home parents! In fact, we may not be taking any humans at all. If you are or know a human, this is not the class for you. You know what, just life in general really is not welcome... But other than that, be sure to come and bring your kids! PS: Sorry for the dead memes.", ev = {name:"TST_S: How To Do Things 102",id:'lol',link:"https://cataas.com/cat/gif",ven:"Nova Labs",loc:"Your Imagination",fRaw:69,fee:"$69.00",dRaw:"1994-03-21T16:20",wait:0,desc:desc,hosts:[{name:"John Doe",email:"test@example.com",id:0}]};
 	ev.rsvp = [
 		{name:"Tony Hock - Pro Scooter",id:5321,fee:69,ti:0},
 		{name:"PewDiePie",id:100000000,fee:0,ti:3},
@@ -373,8 +387,7 @@ window.test = function() {
 		{name:"Ng Wai Chung",id:5607,fee:69,ti:7},
 		{name:"Fakus Namecus-Esquire III",id:7080,fee:69,ti:0},
 	];
-
-	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fPay.onchange(); fType.value='sgn';
+	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fPay.onchange();
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
-	scrollTo(0,9999); return "EXECUTING TEST...";
+	fMail.value=ev.hosts[0].email; fAdc.value='a'; scrollTo(0,9999); return "EXECUTING TEST...";
 }
