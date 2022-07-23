@@ -111,7 +111,7 @@ function formLoad() {
 	ioInit('form', () => { //Connect:
 		statusMsg(); if(!Socket.c) { //First:
 			location.hash='';
-			utils.setCookie('pwd',Pwd,Date.now()+PwdExp); //FIXME TEMP <----------------------------------
+			utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
 			if(location.search.length>1) {
 				fAdc.value='p'; fAdc.onchange();
 				fTitle.value=location.search.substr(1); getEv();
