@@ -1,4 +1,4 @@
-//Instructor Form ©2021 Pecacheu. GNU GPL v3.0
+//Instructor Form ©2022 Pecacheu. GNU GPL v3.0
 
 'use strict';
 let FormType="Instructor Formbot";
@@ -147,13 +147,11 @@ function initLayout() {
 	//Form Interaction:
 	fAdc.onchange = () => {
 		Ein.textContent = fAdc.value=='a'||EvData?"Name":"ID";
-		let p=fAdc.value=='p'; fTitle.disabled=p&&EvData;
-		fCount.disabled=fType.disabled=fDate.disabled=fCost.disabled=p;
-		clsData.hidden=0;
+		let p=fAdc.value=='p'; fAdc.parentNode.hidden=fTitle.disabled=p&&EvData;
+		fType.disabled=fDate.disabled=fCost.disabled=p; clsData.hidden=0;
 	}
 	(fPay.onchange = () => {
 		Pem.textContent = (fPay.value=='pap'?"PayPal ":'')+"Email";
-		fDon.parentNode.hidden = (fPay.value!='don');
 	})();
 	fCost.onnuminput = () => {
 		let v=fCost.num, a=aTable.children;
@@ -169,24 +167,7 @@ function initLayout() {
 	fTitle.oninput = (e) => {if(e.inputType == 'insertFromPaste' || !e.inputType) getEv()}
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
-		muReject.hidden=muApply.hidden=1; EvData=null;
-		fTitle.value=''; fAdc.onchange();
-	}
-	const nCont=s => EvData._ln.indexOf(s)!=-1;
-	muApply.onclick = () => {
-		if(!EvData) return;
-		fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
-		let h=EvData.hosts[0]; fName.value=h.name; fAdc.value='p';
-		fCost.set(EvData.fRaw); fCount.set(EvData.yes);
-		fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
-		if(r.length >= a.length) return showInfo("Error: RSVP Count Mismatch");
-		for(let i=0,l=r.length,u,s; i<l; i++) {
-			u=r[i],s=a[i+1].children; s[0].firstChild.value=u.name,
-			s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
-		}
-		if(nCont("_t") || nCont("safety")) fType.value='ssn';
-		else if(nCont("_s") || nCont("sign-off") || nCont("sign off")) fType.value='sgn';
-		else fType.value='mkr';
+		muReject.hidden=1; EvData=null; fTitle.value=''; fAdc.onchange();
 	}
 	//Submit:
 	sButton.onclick = () => {
@@ -198,8 +179,7 @@ function initLayout() {
 				fName.value, fMail.value, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
 			//Fade out submit button:
 			let ss=sButton.style; ss.transition='opacity 0.5s ease-out', ss.opacity=0;
-			setTimeout(() => { if(!ss.opacity) ss.display='none'; }, 550);
-			PdfSub=1;
+			setTimeout(() => {if(!ss.opacity) ss.display='none'}, 550); PdfSub=1;
 		} else { //Generate PDF:
 			let e=genPdf(); if(e) return showInfo("Form Error: "+e);
 			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,0.8)');
@@ -269,7 +249,22 @@ function genEvent(ev,e) {
 	for(let i=0,l=ev.hosts.length; i<l; i++) hc += (i?', ':'')+"<a href='"
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
 	hl.innerHTML=hc; fTitle.value=ev.name; ev._ln=ev.name.toLowerCase();
-	fDate.value=utils.toDateTimeBox(ev.d); muApply.hidden=0; fAdc.onchange();
+	fDate.value=utils.toDateTimeBox(ev.d); evApply(); fAdc.onchange();
+}
+const nCont=s => EvData._ln.indexOf(s)!=-1;
+function evApply() {
+	fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
+	let h=EvData.hosts[0]; fName.value=h.name; fAdc.value='p';
+	fCost.set(EvData.fRaw); fCount.set(EvData.yes);
+	fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
+	if(r.length >= a.length) return showInfo("Error: RSVP Count Mismatch");
+	for(let i=0,l=r.length,u,s; i<l; i++) {
+		u=r[i],s=a[i+1].children; s[0].firstChild.value=u.name,
+		s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
+	}
+	if(nCont("_t") || nCont("safety")) fType.value='ssn';
+	else if(nCont("_s") || nCont("sign-off") || nCont("sign off")) fType.value='sgn';
+	else fType.value='mkr';
 }
 
 //---------------------------------------- PDF Generator ----------------------------------------
@@ -280,17 +275,15 @@ cSub='#c05545', cMail='#0065ee', xOff=0.2;
 function genPdf() {
 	fTitle.n = fTitle.value+(fAdc.value=='a'?" [ADHOC]":'');
 	let fT=fTitle.n, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
-	fN=fName.value, fP=selBoxValue(fPay), fF=fDon.value, fM=fMail.value, fC=fCost.num,
+	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fC=fCost.num,
 	fY=fType.value, fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
 
 	//Error checking:
-	if(!fP || typeof fP != 'string') return "Payment Type";
-	if(fPay.value == 'don' && !fF) return "Donation To";
-	if(!fT) return "Class Name"; if(!fDate.value) return "Class Date";
-	if(!fN) return "Instructor Name"; if(!fM) return "Instructor Email";
-	if(!fY) return "Class Type"; if(!fC || fC<15) return "Price Below $15";
-	if(!fS || fS<0) return "Students Count"; if(!(fMC>=0)) return "Material Cost";
-	if(fR<0 || fR>100) return "NovaLabs Rate";
+	if(!fP) return "Payment Type"; if(!fT) return "Class Name";
+	if(!fDate.value) return "Class Date"; if(!fN) return "Instructor Name";
+	if(!fM) return "Instructor Email"; if(!fY) return "Class Type";
+	if(!fC || fC<15) return "Price Below $15"; if(!fS || fS<0) return "Students Count";
+	if(!(fMC>=0)) return "Material Cost"; if(fR<0 || fR>100) return "NovaLabs Rate";
 
 	//Read Attendee List:
 	let a=aTable.children,sl=[],rt=0; aTable.sl=sl;
@@ -318,9 +311,9 @@ function genPdf() {
 	pdf.setFontSize(40); pdf.setTextColor(cTitle);
 	pdf.text(8.5/2,0.7,FormType,null,null,'center');
 	pdfLine(1.5,'Class Name',fT); pdfLine(2,'Date',fD);
-	pdfLine(2.5,'Type',fType.selectedOptions[0].text);
+	pdfLine(2.5,'Type',selBoxValue(fType));
 	pdfLine(3.5,'Instructor',fN,'#000000');
-	pdfLine(4,'Payment',fF?"Donation ("+fF+")":fP);
+	pdfLine(4,'Payment',fP);
 	pdfLine(4.5,'Email',fM,cMail);
 
 	//Cost Breakdown:
@@ -369,11 +362,7 @@ function showInfo(msg, bg) {
 	let es=infoBox.style; es.background=bg, es.transition=null, es.opacity=0;
 	setTimeout(() => { es.transition='opacity 0.5s ease-out', es.opacity=1; },0);
 }
-
-function selBoxValue(sb) {
-	let op=sb.options, l=op[op.selectedIndex];
-	if(!l) return null; return l.label;
-}
+function selBoxValue(sb) {let o=sb.selectedOptions; return o[0]?o[0].text:null}
 
 //---------------------------------------- Form Test ----------------------------------------
 
@@ -387,7 +376,7 @@ window.test = function() {
 		{name:"Ng Wai Chung",id:5607,fee:69,ti:7},
 		{name:"Fakus Namecus-Esquire III",id:7080,fee:69,ti:0},
 	];
-	ev.yes=ev.rsvp.length; genEvent(ev); muApply.onclick(); fPay.value='pap'; fPay.onchange();
+	ev.yes=ev.rsvp.length; genEvent(ev); fPay.value='pap'; fPay.onchange();
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
 	fMail.value=ev.hosts[0].email; fAdc.value='a'; scrollTo(0,9999); return "EXECUTING TEST...";
 }

@@ -1,5 +1,5 @@
-//Instructor Form ©2021 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2.5';
+//Instructor Form ©2022 Pecacheu. GNU GPL v3.0
+const VERSION='v3.2.6';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
@@ -55,7 +55,7 @@ function initMail() {
 		host:"smtp.gmail.com", port:587, requireTLS:true, auth:{user:MailHost, pass:MailPass}
 	});
 	Mailer.verify((e) => {
-		if(e) { console.log(chalk.bgRed("SMTP Init"),e); return process.exit(); }
+		if(e) {console.log(chalk.bgRed("SMTP Init"),e); return process.exit()}
 		console.log("SMTP connected!"); startServer(); runInput();
 	});
 }
@@ -86,7 +86,7 @@ async function getEvData(ev) {
 	evm.fee=evm.fRaw?formatCost(evm.fRaw):"Free";
 	//RSVP:
 	for(let i=0,l=dr.length,u; i<l; i++) {
-		try { u=await getEvUser(dr[i],hd); } catch(e) { throw "User["+i+"] "+e; }
+		try {u=await getEvUser(dr[i],hd)} catch(e) {throw "User["+i+"] "+e}
 		if(u.h) evm.hosts.push(u); else evm.rsvp.push(u);
 	}
 	evm.yes -= evm.hosts.length;
@@ -110,7 +110,7 @@ async function getEvUser(u,hd) {
 function httpsReq(uri, mt, hdr, rb) {
 	return new Promise((res,rej) => {
 		let dat='',tt,re,rq=https.request(uri, {method:mt,headers:hdr}, (r) => {
-			re=r; r.setEncoding('utf8'); r.on('data', d => { dat+=d; }); r.on('end', rEnd);
+			re=r; r.setEncoding('utf8'); r.on('data', d => {dat+=d}); r.on('end', rEnd);
 		}).on('error', rEnd);
 		if(rb) rq.write(rb); rq.end();
 		tt=setTimeout(() => rEnd(Error("Timed Out")), ReqTimeout);
@@ -165,7 +165,7 @@ function initCli(sck) {
 		if(!ev || tyS(ev) || ev.length > 20) return ack(sck,EV,"Invalid event "+ev);
 		if(EvLoad) return ack(sck,EV,"Server busy"); EvLoad=1;
 		if(ATkn) getEvent(sck,ev); else getAuth().then(() => getEvent(sck,ev))
-		.catch(e => { EvLoad=0,ack(sck,EV,"Auth "+e); });
+		.catch(e => {EvLoad=0,ack(sck,EV,"Auth "+e)});
 	});
 
 	sck.on('sendForm', (title, date, uName, uMail, pdf, aList, sType) => {
@@ -182,7 +182,8 @@ function initCli(sck) {
 		if(!(sType >= 0) || sType && !aList.length) return ack(sck,EV,"Bad input: sType");
 		//Attendee List Error Checking:
 		for(let i=0,a,e=0,l=aList.length; i<l; i++) {
-			a=aList[i]; if(a.length !== 3) e="Invalid Length";
+			a=aList[i]; if(a.length !== 4) e="Invalid Length";
+			a.splice(0,2,a[0]+a[1]);
 			if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
 			if(tyS(a[1]) || a[1].length > 40) e="Level Invalid";
 			if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
@@ -190,8 +191,8 @@ function initCli(sck) {
 		}
 
 		sck.cliLog('yellow',`(${EV}) Submitting '${title}'...`);
-		let t=setTimeout(() => { ack(sck,EV,"Failed to send email: Timed out!"); }, SendTimeout);
-		function tStop() { if(t) clearTimeout(t),t=0; }
+		let t=setTimeout(() => ack(sck,EV,"Failed to send email: Timed out!"), SendTimeout);
+		function tStop() {if(t) clearTimeout(t),t=0}
 
 		//Embedded Event:
 		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
@@ -216,7 +217,7 @@ function initCli(sck) {
 	sck.removeAllListeners('disconnect');
 	sck.on('disconnect', function() {
 		sck.removeAllListeners(); sck.cliErr("Client disconnected"); CT.splice(sck.ind,1);
-		for(let i=0,l=CT.length,ind=sck.ind; i<l; i++) { let s=CT[i]; if(s.ind > ind) s.emit('id',s.ind--); }
+		for(let i=0,l=CT.length,ind=sck.ind; i<l; i++) {let s=CT[i]; if(s.ind > ind) s.emit('id',s.ind--)}
 	});
 	sck.emit('connection', sck.ind, VERSION);
 }
