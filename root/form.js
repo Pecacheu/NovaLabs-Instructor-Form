@@ -156,6 +156,8 @@ function initLayout() {
 	fCost.onnuminput = () => {
 		let v=fCost.num, a=aTable.children;
 		for(let i=1,l=a.length; i<l; i++) a[i].children[3].firstChild.set(v);
+		if(v<15) showInfo("Warning: Price Below $15. (You must clear this with the board!)");
+		else infoBox.textContent='';
 	}
 	let fd=document.getElementsByClassName('field');
 	for(let i=0,l=fd.length,f; i<l; i++) {
@@ -282,7 +284,7 @@ function genPdf() {
 	if(!fP) return "Payment Type"; if(!fT) return "Class Name";
 	if(!fDate.value) return "Class Date"; if(!fN) return "Instructor Name";
 	if(!fM) return "Instructor Email"; if(!fY) return "Class Type";
-	if(!fC || fC<15) return "Price Below $15"; if(!fS || fS<0) return "Students Count";
+	if(!(fC>0)) return "Class Price"; if(!fS || fS<0) return "Students Count";
 	if(!(fMC>=0)) return "Material Cost"; if(fR<0 || fR>100) return "NovaLabs Rate";
 
 	//Read Attendee List:
