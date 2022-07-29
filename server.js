@@ -1,5 +1,5 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2.6';
+const VERSION='v3.2.7';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
@@ -171,7 +171,7 @@ function initCli(sck) {
 	sck.on('sendForm', (title, date, uName, uMail, pdf, aList, sType) => {
 		const EV='sendForm';
 		//Error Checking:
-		if(tyS(title) || title.length > 80 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
+		if(tyS(title) || title.length > 120 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
 		if(title.indexOf(':') == -1 || Number(title)) return ack(sck,EV,"Invalid title! Did you mean to auto-fill via class ID? To auto-fill, please select the name field again and press ENTER or ⏎");
 		if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(sck,EV,"Bad input: date");
 		if(tyS(uName) || !pText.test(uName)) return ack(sck,EV,"Bad input: instructorName");
