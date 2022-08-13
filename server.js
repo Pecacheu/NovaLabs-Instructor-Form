@@ -1,14 +1,13 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.2.7';
+const VERSION='v3.3';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
-import {stripHtml} from 'string-strip-html'; import argon2 from 'argon2';
+import {stripHtml} from 'string-strip-html'; import {authenticator as otp} from 'otplib';
 let Cli={}, SrvIp, Mailer;
 
 //Config Options:
 const Debug=false, Port=443, Path="/root", SendTimeout=15000, ReqTimeout=5000,
-PwdHash='$argon2i$v=19$m=4096,t=3,p=1$YnpaQ016UjBVMWd4VFVoUlowWk1XQQ$offATn+U1wQRYxzayD2o28iyH0GXbMuCoQLB6nuuMZY',
 SrvKey='../snap/keys/privkey.pem', SrvCert='../snap/keys/fullchain.pem';
 
 //Filter Patterns:
@@ -16,7 +15,7 @@ const pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
 pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/;
 
 //Messages:
-const MsgHeader="{ NovaLabs FormBot Automated Message }", MsgStyle='font:20px "Segoe UI",Helvetica,Arial',
+const MsgHeader="{ NovaLabs Formbot Automated Message }", MsgStyle='font:20px "Segoe UI",Helvetica,Arial',
 NoHTML="\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.";
 
 //Email Addresses:
@@ -25,7 +24,8 @@ AccAddr=['formbot-events-relay@nova-labs.org'], MemAddr='formbot-membership-rela
 
 //Auth Keys:
 const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
-ApiUri="https://api.wildapricot.org/v2/accounts/"; let ATkn,AUsr,EvLoad,SrvOpt;
+ApiUri="https://api.wildapricot.org/v2/accounts/", OtpSecret=fs.readFileSync('otpkey');
+let ATkn,AUsr,EvLoad,SrvOpt;
 
 try {SrvOpt={key:fs.readFileSync(SrvKey), cert:fs.readFileSync(SrvCert)}}
 catch(e) {console.log(chalk.dim("Warning: Could not load certificates! HTTPS disabled"))}
@@ -81,6 +81,9 @@ async function getEvData(ev) {
 		yes:d.ConfirmedRegistrationsCount, wait:d.PendingRegistrationsCount,
 		desc:stripHtml(d.Details.DescriptionHtml).result, hosts:[], rsvp:[]
 	};
+	//Date & Time:
+	let dt=formatDate(new Date(evm.dRaw)), ds=dt.indexOf(' ',6);
+	evm.time=dt.substr(0,ds), evm.date=dt.substr(ds+1);
 	//Fee Info:
 	for(let i=0,l=rt.length; i<l; i++) evm.fRaw=Math.max(rt[i].BasePrice||0,evm.fRaw);
 	evm.fee=evm.fRaw?formatCost(evm.fRaw):"Free";
@@ -133,28 +136,27 @@ function startServer() {
 	//Init Socket.io
 	new io(srv).on('connection', sck => {
 		sck.adr=sck.handshake.address.substr(7);
-		console.log(chalk.cyan("[SCK] Establishing connection..."));
+		console.log(chalk.cyan("[SCK] Connecting..."));
 		sck.on('disconnect', () => {
 			sck.removeAllListeners();
 			console.log(chalk.red("[SCK] Connection dropped!"));
 		});
-		function badPwd(p,e) {
-			console.log(chalk.red("[SCK] Bad passwd"),sck.adr,`'${p}'`,e||'');
-			return setTimeout(() => sck.emit('badPwd'), 1000);
+		function badTkn(p) {
+			console.log(chalk.red("[SCK] Bad token"),sck.adr,`'${p}'`);
+			return setTimeout(() => sck.emit('badTkn'), 1000);
 		}
-		sck.once('type', (cType, pwd) => {
+		sck.once('type', (cType, tkn) => {
 			if(tyS(cType)) return console.log(chalk.red("[SCK] Bad cType"),sck.adr);
-			sck.type=cType; argon2.verify(PwdHash,pwd).then((v) => {
-				if(v) initCli(sck); else badPwd(pwd);
-			}).catch((e) => {badPwd(pwd,e)});
+			sck.type=cType; let v; try {v=otp.check(tkn, OtpSecret)} catch(e) {sck.cliErr(e)}
+			if(v) initCli(sck,tkn); else badTkn(tkn);
 		});
 		sck.emit('type'); //Request type
 	});
 }
 
-function initCli(sck) {
+function initCli(sck,tkn) {
 	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
-	console.log(chalk.yellow("[SCK] New client",sck.adr,`{type=${sck.type},id=${sck.ind}}`));
+	console.log(chalk.yellow("[SCK] New client",sck.adr,tkn,`{type=${sck.type},id=${sck.ind}}`));
 
 	if(Debug) console.log("clientList:",logClientList());
 	sck.cliLog = (clr, msg) => {console.log(chalk[clr](`[${sck.type}:${sck.ind}] `+msg))}
@@ -242,7 +244,7 @@ function genEvent(ev) {
 	if(!ev) return "<p>FormBot Couldn't Find This Event.</p>";
 	try { let eh=ev.hosts, hc="Hosted By: "; for(let i=0,l=eh.length; i<l; i++)
 		hc+=(i?', ':'')+`<a href='${ev.link}' target='_blank' style='${muLink+muVen}'>${eh[i].name}</a>`;
-	return `<p>FormBot Thinks This Event Is:</p><div style='${muEvent}'><a style='${muLink+muTitle}' href='${ev.link}' target='_blank'>${ev.name}</a><div style='${muDetail}'><a style='${muLink+muVen}' href='${ev.link}' target='_blank'>${ev.ven}</a><div style='${muSub}'>${ev.loc}</div><div style='${muDesc}'>${ev.desc}</div></div><div style='${muMeta}'><div style='${muSub+';margin-bottom:6px'}'>100% Match</div><div>${ev.time}</div><div style='${muSub}'>${ev.date}</div><div style='${muRSVP}'>${ev.yes} Attendees<br>${ev.wait} Waitlist</div><div style='margin-top:6px'>${ev.fee}</div></div><div style='${muHosts}'>${hc}</div></div>`;
+	return `<p>Formbot thinks this event is:</p><div style='${muEvent}'><a style='${muLink+muTitle}' href='${ev.link}' target='_blank'>${ev.name}</a><div style='${muDetail}'><a style='${muLink+muVen}' href='${ev.link}' target='_blank'>${ev.ven}</a><div style='${muSub}'>${ev.loc}</div><div style='${muDesc}'>${ev.desc}</div></div><div style='${muMeta}'><div style='${muSub+';margin-bottom:6px'}'>100% Match</div><div>${ev.time}</div><div style='${muSub}'>${ev.date}</div><div style='${muRSVP}'>${ev.yes} Attendees<br>${ev.wait} Waitlist</div><div style='margin-top:6px'>${ev.fee}</div></div><div style='${muHosts}'>${hc}</div></div>`;
 	} catch(e) { return [e.toString()]; }
 }
 
@@ -261,13 +263,6 @@ function logClientList() {
 	return s;
 }
 
-function formatCost(n,sym) { //From utils.js
-	if(!sym) sym = '$'; if(!n) return sym+'0.00';
-	const p = n.toFixed(2).split('.');
-	return sym+p[0].split('').reverse().reduce((a, n, i) =>
-	{ return n=='-'?n+a:n+(i&&!(i%3)?',':'')+a; },'')+'.'+p[1];
-}
-
 function runInput() {
 	console.log("Type 'list' to list clients. Type 'q' to quit.");
 	process.stdin.resume(); process.stdin.setEncoding('utf8');
@@ -279,4 +274,27 @@ function runInput() {
 			console.log("clientList:",chalk.yellow(logClientList()));
 		}
 	});
+}
+
+//From utils.js
+function formatCost(n,sym) {
+	if(!sym) sym = '$'; if(!n) return sym+'0.00';
+	const p = n.toFixed(2).split('.');
+	return sym+p[0].split('').reverse().reduce((a, n, i) =>
+	{ return n=='-'?n+a:n+(i&&!(i%3)?',':'')+a; },'')+'.'+p[1];
+}
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fixedNum2(num) { if(num <= 9) return '0'+num; return num; }
+function suffix(n) {
+	let j=n%10, k=n%100;
+	if(j==1 && k!=11) return n+"st";
+	if(j==2 && k!=12) return n+"nd";
+	if(j==3 && k!=13) return n+"rd";
+	return n+"th";
+}
+function formatDate(d) {
+	if(d == null || !d.getDate || !d.getFullYear()) return "Invalid Date";
+	const mins=d.getMinutes(), month=d.getMonth(), day=d.getDate(), year=d.getFullYear();
+	let hour=d.getHours(), pm=false; if(hour >= 12) { pm = true; hour -= 12; } if(hour == 0) hour = 12;
+	return hour+':'+fixedNum2(mins)+' '+(pm?'PM':'AM')+' '+months[month]+' '+suffix(day)+', '+year;
 }

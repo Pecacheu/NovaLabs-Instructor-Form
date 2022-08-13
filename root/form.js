@@ -2,8 +2,7 @@
 
 'use strict';
 let FormType="Instructor Formbot";
-let DB, DS, BDF, Socket={}, Pwd, StatMsg, PdfData, PdfSub, EvData;
-const PwdExp=3600000*48; //48 Hours
+let DB, DS, BDF, Socket={}, QData, StatMsg, PdfData, PdfSub, EvData;
 
 //---------------------------------------- Background Animation ----------------------------------------
 
@@ -82,10 +81,9 @@ function ioInit(t, con, dCon, idx) {
 	Socket=io.connect(); ioReset();
 	function ioReset() {
 		Socket.removeAllListeners(); Socket.id=null;
-		Socket.on('type', () => {Socket.emit('type',t,Pwd)});
-		Socket.on('badPwd', () => {
-			statusMsg("Bad Password"); location.hash='pwd';
-			setTimeout(() => {location.reload()}, 1000);
+		Socket.on('type', () => {Socket.emit('type',t,QData.tkn)});
+		Socket.on('badTkn', () => {
+			statusMsg("Bad Token. Please try again later!");
 		});
 		Socket.on('connection', (id,ver) => {
 			Socket.on('disconnect', () => {if(dCon) dCon(); ioReset()});
@@ -97,24 +95,17 @@ function ioInit(t, con, dCon, idx) {
 	}
 }
 
-window.onload = () => {
-	if(!location.hash && (Pwd=utils.getCookie('pwd'))) return formLoad();
-	statusMsg("Please Enter Password:");
-	let f=utils.mkEl('input',utils.mkEl('p',statusText),'field');
-	f.onkeypress = (e) => { if(e.key == 'Enter') Pwd=f.value,formLoad(); }
-}
-
+window.onload = formLoad;
 function formLoad() {
+	QData=utils.fromQuery(location.search);
 	console.log("Run test with %ctest()",'background:#000;color:#db0');
 	DB=document.body, DS=DB.style, BDF='backdropFilter' in DS;
 	initLayout(); initBg(); statusMsg("Connecting...");
 	ioInit('form', () => { //Connect:
 		statusMsg(); if(!Socket.c) { //First:
-			location.hash='';
-			utils.setCookie('pwd',Pwd,Date.now()+PwdExp,1);
-			if(location.search.length>1) {
+			if(QData.id) {
 				fAdc.value='p'; fAdc.onchange();
-				fTitle.value=location.search.substr(1); getEv();
+				fTitle.value=QData.id; getEv();
 			}
 		}
 		Socket.on('ack', (ev, stat, e) => {
@@ -221,7 +212,7 @@ function layoutMakeRow() {
 	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm()>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
 	let f=utils.costField(utils.mkEl('input',utils.mkEl('td',r,'user')));
-	f.set(fCost.num); f.onfocus=rstForm; aTable.appendChild(r);
+	f.set(0); f.onfocus=rstForm; aTable.appendChild(r);
 }
 function layoutRemRow() { aTable.lastElementChild.remove(); }
 
@@ -241,17 +232,18 @@ function genEvent(ev,e) {
 	t.href=ev.link, t.target='_blank', t.textContent=ev.name, v.textContent=ev.ven, v.href=ev.link,
 	v.target='_blank', l.textContent=ev.loc, d.textContent=ev.desc;
 	//Meta:
-	let m=utils.mkDiv(box,'muMeta'), ac=utils.mkDiv(m,'muSub'), tt=utils.mkDiv(m), td=utils.mkDiv(m,'muSub'),
-	rs=utils.mkDiv(m,'muRSVP'), dt=utils.formatDate(ev.d=new Date(ev.dRaw)), ds=dt.indexOf(' ',6);
-	tt.textContent=dt.substr(0,ds), td.textContent=dt.substr(ds+1), rs.innerHTML=ev.yes+" Attendees<br>"
-		+ev.wait+" Waitlist", ac.style.marginBottom='6px', ac.textContent="100% Match";
-	utils.mkDiv(m,null,{marginTop:6}).textContent=ev.fee;
+	let m=utils.mkDiv(box,'muMeta');
+	utils.mkDiv(m,'muSub',{marginBottom:'6px'},"100% Match");
+	utils.mkDiv(m,null,null,ev.time); utils.mkDiv(m,'muSub',null,ev.date);
+	utils.mkDiv(m,'muRSVP',null,ev.yes+" Attendees<br>"+ev.wait+" Waitlist");
+	utils.mkDiv(m,null,{marginTop:6},ev.fee);
 	//Hosts:
 	let hl=utils.mkDiv(box, 'muHosts'), hc="Hosted By: ";
 	for(let i=0,l=ev.hosts.length; i<l; i++) hc += (i?', ':'')+"<a href='"
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
 	hl.innerHTML=hc; fTitle.value=ev.name; ev._ln=ev.name.toLowerCase();
-	fDate.value=utils.toDateTimeBox(ev.d); evApply(); fAdc.onchange();
+	fDate.value=utils.toDateTimeBox(ev.d=new Date(ev.dRaw));
+	evApply(); fAdc.onchange();
 }
 const nCont=s => EvData._ln.indexOf(s)!=-1;
 function evApply() {
@@ -330,7 +322,7 @@ function genPdf() {
 	cSub,(fMC>0)?" + Materials = ":" = ",cData,tt,cSub," Reimbursement");
 	//Step 3. Profit!
 	multiColor(10.7,cSub,"( Revenue - ",cData,tt,cSub," = ",
-	cMain,utils.formatCost(rt-t)+" NovaLabs Profit",cSub," )");
+	cMain,utils.formatCost(rt-t)+" Nova Labs Profit",cSub," )");
 
 	//Attendee List:
 	pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
