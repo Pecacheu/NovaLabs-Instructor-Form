@@ -83,7 +83,7 @@ function ioInit(t, con, dCon, idx) {
 		Socket.removeAllListeners(); Socket.id=null;
 		Socket.on('type', () => {Socket.emit('type',t,QData.tkn)});
 		Socket.on('badTkn', () => {
-			statusMsg("Bad Token. Please try again later!");
+			statusMsg("Bad Token\nPlease launch Formbot via Nova Labs Automations using the appropriate WAUtils page for your class.");
 		});
 		Socket.on('connection', (id,ver) => {
 			Socket.on('disconnect', () => {if(dCon) dCon(); ioReset()});
@@ -269,15 +269,15 @@ cSub='#c05545', cMail='#0065ee', xOff=0.2;
 function genPdf() {
 	fTitle.n = fTitle.value+(fAdc.value=='a'?" [ADHOC]":'');
 	let fT=fTitle.n, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
-	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fC=fCost.num,
-	fY=fType.value, fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
+	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fY=fType.value,
+	fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
 
 	//Error checking:
 	if(!fP) return "Payment Type"; if(!fT) return "Class Name";
 	if(!fDate.value) return "Class Date"; if(!fN) return "Instructor Name";
 	if(!fM) return "Instructor Email"; if(!fY) return "Class Type";
-	if(!(fC>0)) return "Class Price"; if(!fS || fS<0) return "Students Count";
-	if(!(fMC>=0)) return "Material Cost"; if(fR<0 || fR>100) return "NovaLabs Rate";
+	if(!fS || fS<0) return "Students Count"; if(!(fMC>=0)) return "Material Cost";
+	if(fR<0 || fR>100) return "NovaLabs Rate";
 
 	//Read Attendee List:
 	let a=aTable.children,sl=[],rt=0; aTable.sl=sl;

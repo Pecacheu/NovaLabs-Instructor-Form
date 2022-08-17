@@ -30,7 +30,7 @@ input[type=email] { color:#5299e2; }
 #bgBox { position:fixed; z-index:-1; }
 #statusText {
 	position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-	color:white; font:300 50px 'Open Sans'; text-align:center;
+	color:white; font:300 50px 'Open Sans'; text-align:center; white-space:pre-wrap;
 }
 #contentBox {
 	position:absolute; left:50%; transform:translateX(-50%);
