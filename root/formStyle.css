@@ -96,7 +96,7 @@ td * {
 	text-overflow:ellipsis; overflow:hidden; font-size:16px;
 }
 td input { border:none; margin:0; width:95%; background:none; }
-td.name * { font-weight:bold; } td.user * { text-align:right; }
+td.usrn * { font-weight:bold; } td.user * { text-align:right; }
 tr:first-of-type { border-top:none; background:#eee; }
 tr:nth-child(even) td { background:#dcdcdc; }
 

@@ -28,8 +28,8 @@
 			<p id="muMatch"></p>
 			<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
 			<p>Class Date: <input id="fDate" class="field" type="datetime-local"></p>
-			<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w\+\-()'. ]"></p>
-			<p><span id="Pem"></span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]"></p>
+			<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w\+\-()'. ]" autocomplete="name"></p>
+			<p><span id="Pem"></span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]" autocomplete="email"></p>
 			<p>Payment: <select id="fPay" class="field">
 				<option selected value="pap">PayPal</option>
 				<option value="chk">Check (Approval Required)</option>

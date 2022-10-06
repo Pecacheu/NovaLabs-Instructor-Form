@@ -207,9 +207,9 @@ const SEL = "<select class=field>\
 </select>";
 
 function layoutMakeRow() {
-	let r=utils.mkEl('tr'), nf=utils.mkEl('td',r,'name',null,"<input type=text onfocus=rstForm()>").firstChild;
+	let r=utils.mkEl('tr'), nf=utils.mkEl('td',r,'usrn',null,"<input type=text onfocus=rstForm() autocomplete=off>").firstChild;
 	charPat(nf, fName.getAttribute('charPattern'));
-	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm()>");
+	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm() autocomplete=off>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
 	let f=utils.costField(utils.mkEl('input',utils.mkEl('td',r,'user')));
 	f.set(0); f.onfocus=rstForm; aTable.appendChild(r);
