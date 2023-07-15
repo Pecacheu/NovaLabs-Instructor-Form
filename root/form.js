@@ -195,15 +195,10 @@ function getEv() {
 const SEL = "<select class=field>\
 	<option selected>---</option>\
 	<option>No Show</option>\
-	<option>No GO</option>\
+	<option>Youth Under 18</option>\
+	<option>Youth Robotics</option>\
 	<option>Paid Using Donate Online</option>\
-	<option>Minor 8-11</option>\
-	<option>Minor 12-15</option>\
-	<option>Minor 16-17</option>\
 	<option>Do Not Sign Off</option>\
-	<option>Incomplete</option>\
-	<option>Safety Sign Off Only</option>\
-	<option>No NL Account</option>\
 </select>";
 
 function layoutMakeRow() {

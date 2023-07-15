@@ -1,5 +1,5 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.3.2';
+const VERSION='v3.3.3';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
