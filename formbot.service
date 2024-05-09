@@ -1,0 +1,11 @@
+[Unit]
+Description=Formbot
+After=network.target
+
+[Service]
+Type=forking
+Restart=always
+ExecStart=/home/pecacheu/formbot/run.sh
+
+[Install]
+WantedBy=multi-user.target

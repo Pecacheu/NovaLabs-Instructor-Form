@@ -1,5 +1,5 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.3.3';
+const VERSION='v3.3.5';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
@@ -7,8 +7,8 @@ import {stripHtml} from 'string-strip-html'; import {authenticator as otp} from 
 let Cli={}, SrvIp, Mailer;
 
 //Config Options:
-const Debug=false, Port=443, Path="/root", SendTimeout=15000, ReqTimeout=5000,
-SrvKey='../snap/keys/privkey.pem', SrvCert='../snap/keys/fullchain.pem';
+const Debug=false, Port=8000, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+SrvKey="", SrvCert="";
 
 //Filter Patterns:
 const pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
@@ -104,10 +104,11 @@ async function getEvUser(u,hd) {
 		case 'Email': em=r[i].Value; break;
 	}
 	if(!fn || !ln || !em || !t || !t.Name || !u.Contact) throw "Data Error";
-	//Get Member Level:
+	//Get Member Level
 	let c=JSON.parse(await httpsReq(ApiUri+AUsr+"/contacts/"+u.Contact.Id, 'GET', hd));
 	return {name:fn+' '+ln, email:em, id:u.Contact.Id, fee:u.PaidSum||0,
-	level:c.MembershipLevel?c.MembershipLevel.Name:null, h:t.Name.startsWith("Instructor")};
+		level:c.MembershipLevel?c.MembershipLevel.Name:null,
+		h:t.Name.toLowerCase().startsWith("5. instructor")};
 }
 
 function httpsReq(uri, mt, hdr, rb) {

@@ -197,6 +197,7 @@ const SEL = "<select class=field>\
 	<option>No Show</option>\
 	<option>Youth Under 18</option>\
 	<option>Youth Robotics</option>\
+	<option>Makerschool</option>\
 	<option>Paid Using Donate Online</option>\
 	<option>Do Not Sign Off</option>\
 </select>";
