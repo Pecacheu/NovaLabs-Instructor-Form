@@ -1,5 +1,5 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.3.5';
+const VERSION='v3.3.6';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
@@ -171,7 +171,7 @@ function initCli(sck,tkn) {
 		.catch(e => {EvLoad=0,ack(sck,EV,"Auth "+e)});
 	});
 
-	sck.on('sendForm', (title, date, uName, uMail, pdf, aList, sType) => {
+	sck.on('sendForm', (title, date, uName, uMail, cMat, pdf, aList, sType) => {
 		const EV='sendForm';
 		//Error Checking:
 		if(tyS(title) || title.length > 120 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
@@ -179,6 +179,7 @@ function initCli(sck,tkn) {
 		if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(sck,EV,"Bad input: date");
 		if(tyS(uName) || !pText.test(uName)) return ack(sck,EV,"Bad input: instructorName");
 		if(tyS(uMail) || !pEmail.test(uMail)) return ack(sck,EV,"Bad input: instructorMail");
+		if(tyN(cMat) || cMat < 0) return ack(sck,EV,"Bad input: materialCost");
 		if(tyS(pdf) || pdf.length < 1) return ack(sck,EV,"Bad input: pdf");
 		if(pdf.length > 20000) return ack(sck,EV,"Pdf exceeded max size 20KB");
 		if(!Array.isArray(aList) || aList.length > 200) return ack(sck,EV,"Bad input: attendeeList");
@@ -198,7 +199,7 @@ function initCli(sck,tkn) {
 		function tStop() {if(t) clearTimeout(t),t=0}
 
 		//Embedded Event:
-		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
+		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm,uName), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+(cMat?"Materials: "+formatCost(cMat):'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
 		if(tyS(ev)) return ack(sck,EV,"Error generating event data: "+ev[0]);
 
 		//Send Emails:
@@ -225,7 +226,8 @@ function initCli(sck,tkn) {
 	sck.emit('connection', sck.ind, VERSION);
 }
 
-function tyS(v) { return typeof v != 'string'; }
+function tyS(v) {return typeof v != 'string'}
+function tyN(v) {return typeof v != 'number'}
 
 const tStyle='overflow:hidden;max-width:1000px;color:#888;border-radius:10px;width:100%;border-collapse:collapse;background:#f5f5f5;box-shadow:2px 2px 2px rgba(0,0,0,0.3);font-size:16px;table-layout:fixed', tdStyle='border-top:1px solid #eee;padding:9px 12px;line-height:15px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden', trFirstStyle='border-top:none;background:#eee', trEvenStyle="style='background:#dcdcdc'", nameStyle='font-weight:700', mailStyle='color:#5299e2;font-weight:500', userStyle='text-align:right';
 
@@ -241,11 +243,17 @@ function genTable(tb) {
 
 const muEvent='width:550px;overflow:hidden;font-size:16px;border-radius:8px;padding:16px;border:1px solid rgba(0,0,0,0.12);background:#fafafa;box-shadow:2px 2px 2px rgba(0,0,0,0.3); color:rgba(0,0,0,0.87)', muLink='color:inherit;display:inline-block;text-decoration:none;vertical-align:bottom;', muTitle='font-size:16pt;font-weight:600;white-space:pre-line', muDetail='margin-top:6px;width:70%;float:left', muVen='color:rgb(0,154,227)', muSub='color:rgba(0,0,0,0.54);font-size:13px', muDesc='margin-top:6px;line-height:1.35em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;height:84px;overflow:hidden', muMeta='margin-top:8px;float:right', muRSVP='margin-top:6px;font-size:13.5px', muHosts='margin-top:6px;display:inline-block;width:100%;color:rgba(0,0,0,0.54);font-size:13px';
 
-function genEvent(ev) {
+function genEvent(ev, host) {
 	if(!ev) return "<p>FormBot Couldn't Find This Event.</p>";
-	try { let eh=ev.hosts, hc="Hosted By: "; for(let i=0,l=eh.length; i<l; i++)
-		hc+=(i?', ':'')+`<a href='${ev.link}' target='_blank' style='${muLink+muVen}'>${eh[i].name}</a>`;
-	return `<p>Formbot thinks this event is:</p><div style='${muEvent}'><a style='${muLink+muTitle}' href='${ev.link}' target='_blank'>${ev.name}</a><div style='${muDetail}'><a style='${muLink+muVen}' href='${ev.link}' target='_blank'>${ev.ven}</a><div style='${muSub}'>${ev.loc}</div><div style='${muDesc}'>${ev.desc}</div></div><div style='${muMeta}'><div style='${muSub+';margin-bottom:6px'}'>100% Match</div><div>${ev.time}</div><div style='${muSub}'>${ev.date}</div><div style='${muRSVP}'>${ev.yes} Attendees<br>${ev.wait} Waitlist</div><div style='margin-top:6px'>${ev.fee}</div></div><div style='${muHosts}'>${hc}</div></div>`;
+	try {
+		let eh=ev.hosts, hc="", chgHost=1;
+		for(let i=0,l=eh.length,n; i<l; i++) {
+			n=eh[i].name;
+			hc+=(i?', ':'')+`<a href='${ev.link}' target='_blank' style='${muLink+muVen}'>${n}</a>`;
+			if(host == n) chgHost=0;
+		}
+		if(host && chgHost) hc=host+` (Originally ${hc})`;
+		return `<p>Formbot thinks this event is:</p><div style='${muEvent}'><a style='${muLink+muTitle}' href='${ev.link}' target='_blank'>${ev.name}</a><div style='${muDetail}'><a style='${muLink+muVen}' href='${ev.link}' target='_blank'>${ev.ven}</a><div style='${muSub}'>${ev.loc}</div><div style='${muDesc}'>${ev.desc}</div></div><div style='${muMeta}'><div style='${muSub+';margin-bottom:6px'}'>100% Match</div><div>${ev.time}</div><div style='${muSub}'>${ev.date}</div><div style='${muRSVP}'>${ev.yes} Attendees<br>${ev.wait} Waitlist</div><div style='margin-top:6px'>${ev.fee}</div></div><div style='${muHosts}'>Hosted By: ${hc}</div></div>`;
 	} catch(e) { return [e.toString()]; }
 }
 

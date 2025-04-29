@@ -128,7 +128,7 @@ function formLoad() {
 function initLayout() {
 	header.textContent=FormType; fDate.value=utils.toDateTimeBox(new Date());
 	utils.numField(fCount,0,50); utils.numField(fRate,0,100); fRate.set(30);
-	utils.costField(fCost); utils.costField(fMatCost);
+	utils.numField(fCost,null,null,null,'$'); utils.numField(fMatCost,null,null,null,'$');
 	fCount.onblur = () => {
 		let n=fCount.num+1; if(n) {
 			while(n > aTable.childElementCount) layoutMakeRow();
@@ -169,7 +169,7 @@ function initLayout() {
 		if(PdfData) { //Submit:
 			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
 			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.fromDateTimeBox(fDate)),
-				fName.value, fMail.value, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
+				fName.value, fMail.value, fMatCost.num, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
 			//Fade out submit button:
 			let ss=sButton.style; ss.transition='opacity 0.5s ease-out', ss.opacity=0;
 			setTimeout(() => {if(!ss.opacity) ss.display='none'}, 550); PdfSub=1;
@@ -207,7 +207,7 @@ function layoutMakeRow() {
 	charPat(nf, fName.getAttribute('charPattern'));
 	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm() autocomplete=off>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
-	let f=utils.costField(utils.mkEl('input',utils.mkEl('td',r,'user')));
+	let f=utils.numField(utils.mkEl('input',utils.mkEl('td',r,'user')),null,null,null,'$');
 	f.set(0); f.onfocus=rstForm; aTable.appendChild(r);
 }
 function layoutRemRow() { aTable.lastElementChild.remove(); }
@@ -356,17 +356,19 @@ function selBoxValue(sb) {let o=sb.selectedOptions; return o[0]?o[0].text:null}
 
 //---------------------------------------- Form Test ----------------------------------------
 
-window.test = function() {
+window.test = () => {
 	FormType=FormType.replace('Form','Test'), header.textContent=FormType;
 	let desc = "This is a NovaLabs WA Test event which teaches individuals how to do the stuff and things. This is an introductory class, so please no advanced students. Also, no children ages 12 or below, and no adults 25 or up. We won't be accepting teenagers either, so please leave your teens at home parents! In fact, we may not be taking any humans at all. If you are or know a human, this is not the class for you. You know what, just life in general really is not welcome... But other than that, be sure to come and bring your kids! PS: Sorry for the dead memes.", ev = {name:"TST_S: How To Do Things 102",id:'lol',link:"https://cataas.com/cat/gif",ven:"Nova Labs",loc:"Your Imagination",fRaw:69,fee:"$69.00",dRaw:"1994-03-21T16:20",wait:0,desc:desc,hosts:[{name:"John Doe",email:"test@example.com",id:0}]};
 	ev.rsvp = [
 		{name:"Tony Hock - Pro Scooter",id:5321,fee:69,ti:0},
 		{name:"PewDiePie",id:100000000,fee:0,ti:3},
 		{name:"Product Placement",id:4853,fee:69,ti:2},
-		{name:"Ng Wai Chung",id:5607,fee:69,ti:7},
+		{name:"Sum Ting Wong",id:5607,fee:69,ti:6},
 		{name:"Fakus Namecus-Esquire III",id:7080,fee:69,ti:0},
 	];
 	ev.yes=ev.rsvp.length; genEvent(ev); fPay.value='pap'; fPay.onchange();
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
-	fMail.value=ev.hosts[0].email; fAdc.value='a'; scrollTo(0,9999); return "EXECUTING TEST...";
+	fMail.value=ev.hosts[0].email, fAdc.value='a', fMatCost.set(42.5);
+	scrollTo(0,9999); statusMsg();
+	return "EXECUTING TEST...";
 }
