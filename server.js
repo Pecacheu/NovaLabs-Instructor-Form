@@ -1,5 +1,5 @@
 //Instructor Form ©2022 Pecacheu. GNU GPL v3.0
-const VERSION='v3.3.6';
+const VERSION='v3.3.7';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
 import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
@@ -103,10 +103,10 @@ async function getEvUser(u,hd) {
 		case 'FirstName': fn=r[i].Value; break; case 'LastName': ln=r[i].Value; break;
 		case 'Email': em=r[i].Value; break;
 	}
-	if(!fn || !ln || !em || !t || !t.Name || !u.Contact) throw "Data Error";
+	if((!fn && !ln) || !em || !t || !t.Name || !u.Contact) throw "Data Error";
 	//Get Member Level
 	let c=JSON.parse(await httpsReq(ApiUri+AUsr+"/contacts/"+u.Contact.Id, 'GET', hd));
-	return {name:fn+' '+ln, email:em, id:u.Contact.Id, fee:u.PaidSum||0,
+	return {name:(fn||'')+(fn&&ln?' ':'')+(ln||''), email:em, id:u.Contact.Id, fee:u.PaidSum||0,
 		level:c.MembershipLevel?c.MembershipLevel.Name:null,
 		h:t.Name.toLowerCase().startsWith("5. instructor")};
 }
