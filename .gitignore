@@ -1,6 +1,2 @@
 /node_modules
-/apikey
-/otpkey
-/mailpass
-/cert.crt
-/cert.key
+/config.json

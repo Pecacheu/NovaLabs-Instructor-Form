@@ -1,4 +1,4 @@
-//Instructor Form ©2022 Pecacheu. GNU GPL v3.0
+//Instructor Form ©2025 Pecacheu. GNU GPL v3
 const VERSION='v3.3.7';
 
 import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
@@ -6,28 +6,29 @@ import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as m
 import {stripHtml} from 'string-strip-html'; import {authenticator as otp} from 'otplib';
 let Cli={}, SrvIp, Mailer;
 
-//Config Options:
+//Config Options
 const Debug=false, Port=8000, Path="/root", SendTimeout=15000, ReqTimeout=5000,
-SrvKey="", SrvCert="";
+Conf=JSON.parse(fs.readFileSync('config.json')),
 
-//Filter Patterns:
-const pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
-pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/;
+//Filter Patterns
+pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
+pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/,
 
-//Messages:
-const MsgHeader="{ NovaLabs Formbot Automated Message }", MsgStyle='font:20px "Segoe UI",Helvetica,Arial',
-NoHTML="\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.";
+//Messages
+MsgHeader="{ NovaLabs Formbot Automated Message }", MsgStyle='font:20px "Segoe UI",Helvetica,Arial',
+NoHTML="\nHTML-enabled viewer is required for viewing this message.\n\nPowered by bTech.",
 
-//Email Addresses:
-const MailPass=fs.readFileSync('mailpass'), MailHost='formbot@nova-labs.org',
-AccAddr=['formbot-events-relay@nova-labs.org'], MemAddr='formbot-membership-relay@nova-labs.org';
+//Email Addresses
+MailHost='formbot@nova-labs.org',
+AccAddr=['formbot-events-relay@nova-labs.org'],
+MemAddr='formbot-membership-relay@nova-labs.org',
 
-//Auth Keys:
-const ApiKey=fs.readFileSync('apikey'), AuthUri="https://oauth.wildapricot.org/auth/token",
-ApiUri="https://api.wildapricot.org/v2/accounts/", OtpSecret=fs.readFileSync('otpkey');
+//Auth Keys
+AuthUri="https://oauth.wildapricot.org/auth/token",
+ApiUri="https://api.wildapricot.org/v2/accounts/";
 let ATkn,AUsr,EvLoad,SrvOpt;
 
-try {SrvOpt={key:fs.readFileSync(SrvKey), cert:fs.readFileSync(SrvCert)}}
+try {SrvOpt={key:fs.readFileSync(Conf.key), cert:fs.readFileSync(Conf.cert)}}
 catch(e) {console.log(chalk.dim("Warning: Could not load certificates! HTTPS disabled"))}
 
 export function begin(ips) {
@@ -40,7 +41,7 @@ async function getAuth() {
 	if(ATkn) return;
 	let hdr = {
 		"Content-type":"application/x-www-form-urlencoded",
-		Authorization:"Basic "+Buffer.from("APIKEY:"+ApiKey).toString('base64')
+		Authorization:"Basic "+Buffer.from("APIKEY:"+Conf.apikey).toString('base64')
 	},
 	d=JSON.parse(await httpsReq(AuthUri, 'POST', hdr, "grant_type=client_credentials&scope=auto")),
 	ex=d.expires_in;
@@ -52,7 +53,7 @@ async function getAuth() {
 
 function initMail() {
 	Mailer=mail.createTransport({
-		host:"smtp.gmail.com", port:587, requireTLS:true, auth:{user:MailHost, pass:MailPass}
+		host:"smtp.gmail.com", port:587, requireTLS:true, auth:{user:MailHost, pass:Conf.mailpass}
 	});
 	Mailer.verify((e) => {
 		if(e) {console.log(chalk.bgRed("SMTP Init"),e); return process.exit()}
@@ -148,7 +149,7 @@ function startServer() {
 		}
 		sck.once('type', (cType, tkn) => {
 			if(tyS(cType)) return console.log(chalk.red("[SCK] Bad cType"),sck.adr);
-			sck.type=cType; let v; try {v=otp.check(tkn, OtpSecret)} catch(e) {sck.cliErr(e)}
+			sck.type=cType; let v; try {v=otp.check(tkn, Conf.otpkey)} catch(e) {sck.cliErr(e)}
 			if(v) initCli(sck,tkn); else badTkn(tkn);
 		});
 		sck.emit('type'); //Request type
