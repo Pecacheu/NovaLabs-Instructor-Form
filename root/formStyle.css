@@ -1,29 +1,33 @@
-/* Instructor Form ©2022 Pecacheu. GNU GPL v3.0 */
+/* Instructor Form, Pecacheu 2026. GNU GPL v3 */
 
 #home { position:absolute; top:15; left:20; font-weight:600; color:#000; text-decoration:none; }
 #home:hover { text-decoration:underline; }
 
 /* Styles */
 body { background:black; margin:0; }
+p,em { margin:.5em 0; }
 h1 { margin:0; font-family:"Ubuntu Titling"; text-align:center; }
 h5 { text-align:center; margin-top:0; font-size:14pt; font-weight:500; }
-h4 { margin:0.5em 0; } p { margin:0.5em 0; }
-h6 { font-size:12pt; margin:0.5em 6px; font-weight:600; }
+h4 { margin:.5em 0; }
+h6 { font-size:12pt; margin:.5em 6px; font-weight:600; }
+em { display:block; }
+i,em { font-size:14pt; }
 a { color:#44f; }
 button {
 	height:24px; border-radius:50vh; background:#f5f5f5; color:#888; border:none;
-	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-size:16px; padding:0 8px;
+	box-shadow:2px 2px 2px rgba(0,0,0,.3); font-size:16px; padding:0 8px;
 }
 button:active { background:#dcdcdc; color:#000; }
 .field {
 	width:250px; height:24px; border-radius:50vh; background:#f5f5f5; color:#888;
-	border:none; box-shadow:2px 2px 2px rgba(0,0,0,0.3); overflow:hidden; vertical-align:middle;
+	border:none; box-shadow:2px 2px 2px rgba(0,0,0,.3); overflow:hidden; vertical-align:middle;
 	text-overflow:ellipsis; font-size:16px; margin:0; padding:0 6px; display:inline-block;
-	/*-webkit-appearance:none; -moz-appearance:none; appearance:none;*/
 }
 .field:disabled { background:#888; color:#bbb; }
 .field option:disabled { color:#ccc; }
 input[type=email] { color:#5299e2; }
+input[type=file] { padding:4px 10px; height:auto; width:500px; max-width:100%; }
+input::file-selector-button { display:none; }
 
 /* Content */
 #statusBg { background:grey; width:100%; height:100%; position:fixed; z-index:999; }
@@ -35,11 +39,11 @@ input[type=email] { color:#5299e2; }
 #contentBox {
 	position:absolute; left:50%; transform:translateX(-50%);
 	font:16pt 'Open Sans'; padding:10px; box-sizing:border-box; width:80%;
-	background:rgba(240,235,230,0.8); box-shadow:0 0 10px black;
+	background:rgba(240,235,230,.8); box-shadow:0 0 10px black;
 }
 #infoBox {
 	color:white; white-space:pre-line; margin-top:0; border-radius:5px;
-	padding:0 6px; box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-weight:100;
+	padding:0 6px; box-shadow:2px 2px 2px rgba(0,0,0,.3); font-weight:100;
 	backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 	-moz-backdrop-filter:blur(8px);
 }
@@ -55,8 +59,8 @@ input[type=email] { color:#5299e2; }
 /* Meetup Event Preview */
 .muEvent {
 	max-width:550px; overflow:hidden; font-size:16px; border-radius:8px;
-	padding:16px; border:1px solid rgba(0,0,0,0.12); background:#fafafa;
-	box-shadow:2px 2px 2px rgba(0,0,0,0.3); color:rgba(0,0,0,0.87);
+	padding:16px; border:1px solid rgba(0,0,0,.12); background:#fafafa;
+	box-shadow:2px 2px 2px rgba(0,0,0,.3); color:rgba(0,0,0,.87);
 }
 .muEvent * * { text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:100%; }
 .muEvent a, .muEvent a:visited {
@@ -67,7 +71,7 @@ input[type=email] { color:#5299e2; }
 .muDetail { margin-top:6px; width:70%; float:left; }
 .muVen { color:rgb(0,154,227) !important; }
 .muVen:hover { text-decoration:underline; }
-.muSub { color:rgba(0,0,0,0.54); font-size:13px; }
+.muSub { color:rgba(0,0,0,.54); font-size:13px; }
 .muDesc {
 	white-space:initial; margin-top:6px;
 	line-height:1.35em; display:-webkit-box;
@@ -78,14 +82,14 @@ input[type=email] { color:#5299e2; }
 .muRSVP { margin-top:6px; font-size:13.5px; }
 .muHosts {
 	margin-top:6px; display:inline-block; width:100%;
-	color:rgba(0,0,0,0.54); font-size:13px;
+	color:rgba(0,0,0,.54); font-size:13px;
 }
 
 /* Table CSS */
 table {
 	font-family:"Segoe UI","Roboto"; /*min-width:400px;*/
 	width:100%; border-collapse:collapse; background:#f5f5f5;
-	box-shadow:2px 2px 2px rgba(0,0,0,0.3); font-size:16px;
+	box-shadow:2px 2px 2px rgba(0,0,0,.3); font-size:16px;
 }
 td {
 	border-top:1px solid #eee; padding:6px 3px; line-height:15px;
@@ -114,7 +118,7 @@ tr:nth-child(even) td { background:#dcdcdc; }
 	.muDetail { width:60%; }
 }
 @media (max-width:300px) {
-	#contentBox { zoom:0.7; }
+	#contentBox { zoom:.7; }
 }
 
 /* Font Faces */

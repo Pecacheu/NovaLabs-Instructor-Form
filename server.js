@@ -1,18 +1,37 @@
-//Instructor Form ©2025 Pecacheu. GNU GPL v3
-const VERSION='v3.3.7';
+//Instructor Form, Pecacheu 2026. GNU GPL v3
+const VER='v3.4.0';
 
-import router from './router.js'; import fs from 'fs'; import http from 'http'; import https from 'https';
-import chalk from 'chalk'; import {Server as io} from 'socket.io'; import * as mail from 'nodemailer';
-import {stripHtml} from 'string-strip-html'; import {authenticator as otp} from 'otplib';
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import https from 'https';
+import C from 'chalk';
+import {Server as io} from 'socket.io';
+import * as mail from 'nodemailer';
+import {stripHtml} from 'string-strip-html';
+import {OTP} from 'otplib';
+import router from 'raiutils/router';
+import schema from 'raiutils/schema';
+import 'raiutils';
 let Cli={}, SrvIp, Mailer;
 
 //Config Options
-const Debug=false, Port=8000, Path="/root", SendTimeout=15000, ReqTimeout=5000,
+const Debug=0, Port=8080, SendTimeout=15000, ReqTimeout=5000,
+App=import.meta.dirname, Web=path.join(App, "root"),
+VDir={'utils.js': path.join(App, "node_modules/raiutils/utils.min.js")},
 Conf=JSON.parse(fs.readFileSync('config.json')),
+Otp=new OTP(),
 
 //Filter Patterns
 pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
 pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/,
+
+//Schemas
+rDatatFmt={t:'list',min:0,f:{
+	name:{t:'str',max:200},
+	type:{t:'str',max:50},
+	data:{t:'obj',c:Buffer}
+}},
 
 //Messages
 MsgHeader="{ NovaLabs Formbot Automated Message }", MsgStyle='font:20px "Segoe UI",Helvetica,Arial',
@@ -29,12 +48,14 @@ ApiUri="https://api.wildapricot.org/v2/accounts/";
 let ATkn,AUsr,EvLoad,SrvOpt;
 
 try {SrvOpt={key:fs.readFileSync(Conf.key), cert:fs.readFileSync(Conf.cert)}}
-catch(e) {console.log(chalk.dim("Warning: Could not load certificates! HTTPS disabled"))}
+catch(e) {console.log(C.dim("Warning: Could not load certificates! HTTPS disabled"))}
 
-export function begin(ips) {
-	console.log(chalk.yellow("FormBot "+VERSION));
-	SrvIp=(ips?ips[0]:'localhost'); if(Debug == 2) router.debug=Debug;
-	getAuth().then(initMail).catch(e => console.log(chalk.bgRed("AuthKey"),e));
+async function begin() {
+	await utils.waitInit();
+	const ips=utils.getIPs(), [sysOS, arch, cpu]=utils.getOS();
+	console.log("IP:",ips,`OS: ${sysOS}, ${arch}\nCPU: ${cpu}\n\n`+C.yellow(`FormBot ${VER}`));
+	SrvIp=(ips?ips[0]:'localhost'); if(Debug>1) router.debug=1;
+	getAuth().then(initMail).catch(e => console.log(C.bgRed("AuthKey"),e));
 }
 
 async function getAuth() {
@@ -56,7 +77,7 @@ function initMail() {
 		host:"smtp.gmail.com", port:587, requireTLS:true, auth:{user:MailHost, pass:Conf.mailpass}
 	});
 	Mailer.verify((e) => {
-		if(e) {console.log(chalk.bgRed("SMTP Init"),e); return process.exit()}
+		if(e) {console.log(C.bgRed("SMTP Init"),e); return process.exit()}
 		console.log("SMTP connected!"); startServer(); runInput();
 	});
 }
@@ -101,8 +122,9 @@ async function getEvData(ev) {
 async function getEvUser(u,hd) {
 	let fn,ln,em,r=u.RegistrationFields,t=u.RegistrationType;
 	for(let i=0,l=r.length; i<l; i++) switch(r[i].SystemCode) {
-		case 'FirstName': fn=r[i].Value; break; case 'LastName': ln=r[i].Value; break;
-		case 'Email': em=r[i].Value; break;
+		case 'FirstName': fn=r[i].Value; break;
+		case 'LastName': ln=r[i].Value; break;
+		case 'Email': em=r[i].Value;
 	}
 	if((!fn && !ln) || !em || !t || !t.Name || !u.Contact) throw "Data Error";
 	//Get Member Level
@@ -130,27 +152,30 @@ function httpsReq(uri, mt, hdr, rb) {
 function startServer() {
 	function onReq(req, res) {
 		if(Debug) console.log("[ROUTER]",req.url);
-		router.handle(Path,res,req);
+		router.handle(Web,req,res,VDir);
 	}
 	let srv=(SrvOpt?https.createServer(SrvOpt,onReq):http.createServer(onReq)).listen(Port, () => {
-		console.log(`Listening at ${chalk.bgGreen(`http${SrvOpt?'s':''}://${SrvIp}:${Port}`)}\n`);
+		console.log(`Listening at ${C.bgGreen(`http${SrvOpt?'s':''}://${SrvIp}:${Port}`)}\n`);
 	});
 	//Init Socket.io
 	new io(srv).on('connection', sck => {
-		sck.adr=sck.handshake.address.substr(7);
-		console.log(chalk.cyan("[SCK] Connecting..."));
+		sck.adr=sck.handshake.address.substr(7); //TODO Always blank
+		console.log(C.cyan("[SCK] Connecting..."));
 		sck.on('disconnect', () => {
 			sck.removeAllListeners();
-			console.log(chalk.red("[SCK] Connection dropped!"));
+			console.log(C.red("[SCK] Connection dropped!"));
 		});
 		function badTkn(p) {
-			console.log(chalk.red("[SCK] Bad token"),sck.adr,`'${p}'`);
+			console.log(C.red("[SCK] Bad token"),sck.adr,`'${p}'`);
 			return setTimeout(() => sck.emit('badTkn'), 1000);
 		}
-		sck.once('type', (cType, tkn) => {
-			if(tyS(cType)) return console.log(chalk.red("[SCK] Bad cType"),sck.adr);
-			sck.type=cType; let v; try {v=otp.check(tkn, Conf.otpkey)} catch(e) {sck.cliErr(e)}
-			if(v) initCli(sck,tkn); else badTkn(tkn);
+		sck.once('type', async (cType, tkn) => {
+			if(tyS(cType)) return console.log(C.red("[SCK] Bad cType"),sck.adr);
+			sck.type = cType;
+			sck.cliLog = (clr, msg) => {console.log(C[clr](`[${sck.type}:${sck.ind}] `+msg))}
+			sck.cliErr = msg => {sck.cliLog('red',msg)}
+			let v; try {v=await Otp.verify({token:tkn, secret:Conf.otpkey})} catch(e) {sck.cliErr(e)}
+			if(v && v.valid) initCli(sck,tkn); else badTkn(tkn);
 		});
 		sck.emit('type'); //Request type
 	});
@@ -158,11 +183,8 @@ function startServer() {
 
 function initCli(sck,tkn) {
 	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
-	console.log(chalk.yellow("[SCK] New client",sck.adr,tkn,`{type=${sck.type},id=${sck.ind}}`));
-
+	console.log(C.yellow("[SCK] New client",sck.adr,tkn,`{type=${sck.type},id=${sck.ind}}`));
 	if(Debug) console.log("clientList:",logClientList());
-	sck.cliLog = (clr, msg) => {console.log(chalk[clr](`[${sck.type}:${sck.ind}] `+msg))}
-	sck.cliErr = msg => {sck.cliLog('red',msg)}
 
 	sck.on('getEvent', ev => {
 		const EV='getEvent';
@@ -172,7 +194,7 @@ function initCli(sck,tkn) {
 		.catch(e => {EvLoad=0,ack(sck,EV,"Auth "+e)});
 	});
 
-	sck.on('sendForm', (title, date, uName, uMail, cMat, pdf, aList, sType) => {
+	sck.on('sendForm', (title, date, uName, uMail, cMat, pdf, rData, aList, sType) => {
 		const EV='sendForm';
 		//Error Checking:
 		if(tyS(title) || title.length > 120 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
@@ -182,6 +204,8 @@ function initCli(sck,tkn) {
 		if(tyS(uMail) || !pEmail.test(uMail)) return ack(sck,EV,"Bad input: instructorMail");
 		if(tyN(cMat) || cMat < 0) return ack(sck,EV,"Bad input: materialCost");
 		if(tyS(pdf) || pdf.length < 1) return ack(sck,EV,"Bad input: pdf");
+		try {schema.checkType(rData, rDatatFmt)} catch(e) {return ack(sck,EV,"ReceiptList "+e)}
+		if(cMat && !rData.length) return ack(sck,EV,"Receipts required if materialCost > $0");
 		if(pdf.length > 20000) return ack(sck,EV,"Pdf exceeded max size 20KB");
 		if(!Array.isArray(aList) || aList.length > 200) return ack(sck,EV,"Bad input: attendeeList");
 		if(!(sType >= 0) || sType && !aList.length) return ack(sck,EV,"Bad input: sType");
@@ -199,17 +223,25 @@ function initCli(sck,tkn) {
 		let t=setTimeout(() => ack(sck,EV,"Failed to send email: Timed out!"), SendTimeout);
 		function tStop() {if(t) clearTimeout(t),t=0}
 
-		//Embedded Event:
-		let sb=(uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date, ev=genEvent(sck.evm,uName), aTab=aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+(cMat?"Materials: "+formatCost(cMat):'')+"<p>Event Attendee List:</p>"+genTable(aList):'', atp=title.indexOf('-'), atn=title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'');
+		//Embedded Event
+		let ev = genEvent(sck.evm,uName);
 		if(tyS(ev)) return ack(sck,EV,"Error generating event data: "+ev[0]);
 
-		//Send Emails:
+		let sb = (uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date,
+		aTab = aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+(cMat?"Materials: "+formatCost(cMat):'')+"<p>Event Attendee List:</p>"+genTable(aList):'',
+		atp = title.indexOf('-'),
+		atList = [{filename:title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'')+'.pdf', contentType:router.types['.pdf'], content:pdf}];
+
+		//Receipts
+		for(let r of rData) atList.push({filename:r.name, contentType:r.type, content:r.data});
+
+		//Send Emails
 		let al=AccAddr.slice(),ok=0; al.push(uMail);
 		if(sType) al.push(MemAddr);
 		for(let i in al) {
-			let a=al[i]; console.log("-",chalk.yellow(a));
+			let a=al[i]; console.log("-",C.yellow(a));
 			Mailer.sendMail({
-				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:`<body style='${MsgStyle}'><p><b>${MsgHeader}</b></p>${ev+aTab}<br>Formbot ${VERSION} by <a href='https://github.com/pecacheu'>Pecacheu</a></body>`, attachments:[{filename:atn+'.pdf', contentType:router.types['.pdf'], content:pdf}]
+				from:MailHost, to:a, subject:sb, text:MsgHeader+NoHTML, html:`<body style='${MsgStyle}'><p><b>${MsgHeader}</b></p>${ev+aTab}<br>Formbot ${VER} by <a href='https://github.com/pecacheu'>Pecacheu</a></body>`, attachments:atList
 			}, (e,r) => {
 				if(e) { tStop(); return ack(sck,EV,`Failed to send to ${a}: `+e); }
 				sck.cliLog('yellow',a+": Email sent!"); console.log("REPLY:",r.response);
@@ -224,7 +256,7 @@ function initCli(sck,tkn) {
 		sck.removeAllListeners(); sck.cliErr("Client disconnected"); CT.splice(sck.ind,1);
 		for(let i=0,l=CT.length,ind=sck.ind; i<l; i++) {let s=CT[i]; if(s.ind > ind) s.emit('id',s.ind--)}
 	});
-	sck.emit('connection', sck.ind, VERSION);
+	sck.emit('connection', sck.ind, VER);
 }
 
 function tyS(v) {return typeof v != 'string'}
@@ -279,9 +311,9 @@ function runInput() {
 	process.stdin.on('data', cmd => {
 		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd=cmd.substring(0,s);
 		if(cmd == 'exit' || cmd == 'q') {
-			console.log(chalk.magenta("Exiting...")); process.exit();
+			console.log(C.magenta("Exiting...")); process.exit();
 		} else if(cmd == 'list') {
-			console.log("clientList:",chalk.yellow(logClientList()));
+			console.log("clientList:",C.yellow(logClientList()));
 		}
 	});
 }
@@ -308,3 +340,5 @@ function formatDate(d) {
 	let hour=d.getHours(), pm=false; if(hour >= 12) { pm = true; hour -= 12; } if(hour == 0) hour = 12;
 	return hour+':'+fixedNum2(mins)+' '+(pm?'PM':'AM')+' '+months[month]+' '+suffix(day)+', '+year;
 }
+
+await begin();

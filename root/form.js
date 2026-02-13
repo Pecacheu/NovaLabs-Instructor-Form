@@ -1,4 +1,4 @@
-//Instructor Form ©2022 Pecacheu. GNU GPL v3.0
+//Instructor Form, Pecacheu 2026. GNU GPL v3
 
 'use strict';
 let FormType="Instructor Formbot";
@@ -31,7 +31,7 @@ function bgRun() {
 		//Gradient Fill:
 		w*=r,h*=r; let sx=1,sy=1; if(w>h) ctx.scale(1,sy=h/w); else ctx.scale(sx=w/h,1);
 		let gw=w/sx,gh=h/sy, w2=gw/2,h2=gh/2, g=ctx.createRadialGradient(w2,h2,0,w2,h2,w>h?w:h);
-		g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(0.8,'rgba(0,0,0,.9');
+		g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.8,'rgba(0,0,0,.9');
 		ctx.fillStyle=g; ctx.fillRect(0,0,gw,gh);
 		//Blur:
 		if(!bgGPU) { //Software Blur - Uses CPU, runs better on desktop.
@@ -109,14 +109,14 @@ function formLoad() {
 			}
 		}
 		Socket.on('ack', (ev, stat, e) => {
-			console.log("ACK "+(stat?'true':'false')+": "+ev,e?e:'');
+			console.log(`ACK ${stat?'true':'false'}: ${ev,e?e:''}`);
 			if(!stat) { //Server-side errors:
-				showInfo("Server Error: '"+(e||'{UNKNOWN}')+"'");
+				showInfo(`Server Error: ${e||'{UNKNOWN}'}`);
 				if(ev == 'sendForm') { //Form error:
 					let ss=sButton.style; ss.display=ss.opacity=null, PdfSub=0;
 				} else if(ev == 'getEvent') genEvent(null,e);
 			} else if(ev == 'sendForm') {
-				showInfo("Form submitted successfully.", 'rgba(0,150,20,0.8)');
+				showInfo("Form submitted successfully.", 'rgba(0,150,20,.8)');
 			} else if(ev == 'getEvent') genEvent(e);
 		});
 	}, () => { //Disconnect:
@@ -126,9 +126,9 @@ function formLoad() {
 }
 
 function initLayout() {
-	header.textContent=FormType; fDate.value=utils.toDateTimeBox(new Date());
-	utils.numField(fCount,0,50); utils.numField(fRate,0,100); fRate.set(30);
-	utils.numField(fCost,null,null,null,'$'); utils.numField(fMatCost,null,null,null,'$');
+	header.textContent=FormType; utils.setDateTime(fDate, new Date());
+	utils.numField(fCount,0,200); utils.numField(fRate,0,100); fRate.set(30);
+	utils.numField(fCost,0,null,null,'$'); utils.numField(fMatCost,0,null,null,'$');
 	fCount.onblur = () => {
 		let n=fCount.num+1; if(n) {
 			while(n > aTable.childElementCount) layoutMakeRow();
@@ -150,6 +150,9 @@ function initLayout() {
 		if(v<15) showInfo("Warning: Price Below $15. (You must clear this with the board!)");
 		else infoBox.textContent='';
 	}
+	fMatCost.onnuminput = () => {
+		fMatFiles.parentNode.hidden = !fMatCost.num;
+	}
 	let fd=document.getElementsByClassName('field');
 	for(let i=0,l=fd.length,f; i<l; i++) {
 		(f=fd[i]).addEventListener('focus',rstForm);
@@ -167,15 +170,16 @@ function initLayout() {
 		if(PdfSub) return;
 		if(fAdc.value!='a' && !EvData) return showInfo("Error: Please Enter ID");
 		if(PdfData) { //Submit:
-			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,0.8)');
-			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.fromDateTimeBox(fDate)),
-				fName.value, fMail.value, fMatCost.num, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
+			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,.8)');
+			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.getDateTime(fDate)),
+				fName.value, fMail.value, fMatCost.num, PdfData, getReceipts(),
+				aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
 			//Fade out submit button:
-			let ss=sButton.style; ss.transition='opacity 0.5s ease-out', ss.opacity=0;
+			let ss=sButton.style; ss.transition='opacity .5s ease-out', ss.opacity=0;
 			setTimeout(() => {if(!ss.opacity) ss.display='none'}, 550); PdfSub=1;
 		} else { //Generate PDF:
 			let e=genPdf(); if(e) return showInfo("Form Error: "+e);
-			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,0.8)');
+			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,.8)');
 			sButton.textContent="Submit PDF";
 		}
 	}
@@ -207,7 +211,7 @@ function layoutMakeRow() {
 	charPat(nf, fName.getAttribute('charPattern'));
 	utils.mkEl('td',r,null,null,"<input type=text style=text-align:center onfocus=rstForm() autocomplete=off>");
 	utils.mkEl('td',r,null,{textAlign:'center'},SEL);
-	let f=utils.numField(utils.mkEl('input',utils.mkEl('td',r,'user')),null,null,null,'$');
+	let f=utils.numField(utils.mkEl('input',utils.mkEl('td',r,'user')),0,null,null,'$');
 	f.set(0); f.onfocus=rstForm; aTable.appendChild(r);
 }
 function layoutRemRow() { aTable.lastElementChild.remove(); }
@@ -238,12 +242,12 @@ function genEvent(ev,e) {
 	for(let i=0,l=ev.hosts.length; i<l; i++) hc += (i?', ':'')+"<a href='"
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
 	hl.innerHTML=hc; fTitle.value=ev.name; ev._ln=ev.name.toLowerCase();
-	fDate.value=utils.toDateTimeBox(ev.d=new Date(ev.dRaw));
+	utils.setDateTime(fDate, ev.d=new Date(ev.dRaw));
 	evApply(); fAdc.onchange();
 }
 const nCont=s => EvData._ln.indexOf(s)!=-1;
 function evApply() {
-	fTitle.value=EvData.name, fDate.value=utils.toDateTimeBox(EvData.d);
+	fTitle.value=EvData.name; utils.setDateTime(fDate, EvData.d);
 	let h=EvData.hosts[0]; fName.value=h.name; fAdc.value='p';
 	fCost.set(EvData.fRaw); fCount.set(EvData.yes);
 	fCount.onblur(); let r=EvData.rsvp, a=aTable.children;
@@ -257,14 +261,20 @@ function evApply() {
 	else fType.value='mkr';
 }
 
+function getReceipts() {
+	let rList = [];
+	if(fMatCost.num) for(let f of fMatFiles.files) rList.push({name:f.name, type:f.type, data:f});
+	return rList;
+}
+
 //---------------------------------------- PDF Generator ----------------------------------------
 
 const cTitle='#111133', cMain='#405555', cData='#8888aa',
-cSub='#c05545', cMail='#0065ee', xOff=0.2;
+cSub='#c05545', cMail='#0065ee', xOff=.2;
 
 function genPdf() {
 	fTitle.n = fTitle.value+(fAdc.value=='a'?" [ADHOC]":'');
-	let fT=fTitle.n, fD=utils.formatDate(utils.fromDateTimeBox(fDate)),
+	let fT=fTitle.n, fD=utils.formatDate(utils.getDateTime(fDate)),
 	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fY=fType.value,
 	fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
 
@@ -299,7 +309,7 @@ function genPdf() {
 
 	//Class Info:
 	pdf.setFontSize(40); pdf.setTextColor(cTitle);
-	pdf.text(8.5/2,0.7,FormType,null,null,'center');
+	pdf.text(8.5/2,.7,FormType,null,null,'center');
 	pdfLine(1.5,'Class Name',fT); pdfLine(2,'Date',fD);
 	pdfLine(2.5,'Type',selBoxValue(fType));
 	pdfLine(3.5,'Instructor',fN,'#000000');
@@ -322,12 +332,12 @@ function genPdf() {
 
 	//Attendee List:
 	pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
-	pdf.text(8.5/2,0.7,"Attendee List",null,null,'center');
+	pdf.text(8.5/2,.7,"Attendee List",null,null,'center');
 	pdf.setFontSize(20); pdf.setTextColor(cMain);
 	pdf.text(xOff,1.4,"Name"); pdf.text(4.4,1.4,"Membership");
 	pdf.text(8.5-xOff,1.4,"Payment",null,null,'right');
 	pdf.setFontSize(15);
-	for(let i=0,l=sl.length,off=1.75,s; i<l; i++,off+=0.25) {
+	for(let i=0,l=sl.length,off=1.75,s; i<l; i++,off+=.25) {
 		s=sl[i]; multiColor(off,cTitle,(i+1)+'. '+s[0],"#ee0000",s[1]);
 		pdf.setTextColor(cMail); pdf.text(4.6,off,s[2].toString());
 		pdf.setTextColor(cTitle);
@@ -348,9 +358,9 @@ function statusMsg(msg) {
 }
 function showInfo(msg, bg) {
 	console.info(msg); infoBox.textContent=msg;
-	if(!bg) bg='rgba(150,20,0,0.8)'; if(BDF) bg=bg.substr(0,bg.lastIndexOf(',')+1)+'0.5)';
+	if(!bg) bg='rgba(150,20,0,.8)'; if(BDF) bg=bg.substr(0,bg.lastIndexOf(',')+1)+'.5)';
 	let es=infoBox.style; es.background=bg, es.transition=null, es.opacity=0;
-	setTimeout(() => { es.transition='opacity 0.5s ease-out', es.opacity=1; },0);
+	setTimeout(() => { es.transition='opacity .5s ease-out', es.opacity=1; },0);
 }
 function selBoxValue(sb) {let o=sb.selectedOptions; return o[0]?o[0].text:null}
 

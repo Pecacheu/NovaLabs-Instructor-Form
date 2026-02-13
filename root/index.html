@@ -1,4 +1,4 @@
-<!-- Instructor Form ©2022 Pecacheu. GNU GPL v3.0 -->
+<!-- Instructor Form, Pecacheu 2026. GNU GPL v3 -->
 <html><head>
 	<title>Instructor Formbot</title>
 	<!-- Configure Mobile Scaling -->
@@ -6,7 +6,7 @@
 	<!-- Libraries -->
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="resources/jspdf.min.js"></script>
-	<script src="resources/utils.min.js"></script>
+	<script src="utils.js"></script>
 	<!-- Scripts -->
 	<link rel="stylesheet" type="text/css" href="formStyle.css">
 	<script src="form.js"></script>
@@ -32,6 +32,7 @@
 			<p><span id="Pem"></span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]" autocomplete="email"></p>
 			<p>Payment: <select id="fPay" class="field">
 				<option selected value="pap">PayPal</option>
+				<option value="adp">ADP</option>
 				<option value="chk">Check (Approval Required)</option>
 			</select></p>
 			<h4>Cost Breakdown</h4>
@@ -42,7 +43,12 @@
 			</select></p>
 			<p>Cost/Student: <input id="fCost" class="field"></p>
 			<p>Students: <input id="fCount" class="field"></p>
-			<p>Materials: <input id="fMatCost" class="field"> <span style="font-size:14pt">(Direct class expenses)</span></p>
+			<p>Materials: <input id="fMatCost" class="field"> <i>(Direct class expenses)</i></p>
+			<span hidden>
+				<h4>Attach receipt(s) below</h4>
+				<input id="fMatFiles" class="field" type="file" multiple>
+				<em>When the system file box appears, select one or multiple files to attach. Please send receipts only as PDFs, PNG, or JPEG images.</em>
+			</span>
 			<p hidden>NovaLabs Rate: <input id="fRate" class="field"></p>
 			<h6 id="fRateInfo">30% NovaLabs Rate</h6>
 			<button id="sButton" style="margin:1em 0">Preview Summary</button>
