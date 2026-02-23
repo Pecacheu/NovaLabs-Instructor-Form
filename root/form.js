@@ -2,7 +2,7 @@
 
 'use strict';
 let FormType="Instructor Formbot";
-let DB, DS, BDF, Socket={}, QData, StatMsg, PdfData, PdfSub, EvData;
+let DB, DS, BDF, Socket, SData={}, QData, StatMsg, PdfData, PdfSub, EvData;
 
 //---------------------------------------- Background Animation ----------------------------------------
 
@@ -77,32 +77,40 @@ function boxBlurT4(d,w,h,r) {
 
 //---------------------------------------- User Interface ----------------------------------------
 
-function ioInit(t, con, dCon, idx) {
+function ioInit(type, con, dCon) {
 	Socket=io.connect(); ioReset();
 	function ioReset() {
-		Socket.removeAllListeners(); Socket.id=null;
-		Socket.on('type', () => {Socket.emit('type',t,QData.tkn)});
+		Socket.removeAllListeners();
+		Socket.on('type', () => Socket.emit('type', type, QData.tkn, SData.id));
 		Socket.on('badTkn', () => {
+			utils.remCookie('uid');
 			statusMsg("Bad Token\nPlease launch Formbot via Nova Labs Automations using the appropriate WAUtils page for your class.");
 		});
-		Socket.on('connection', (id,ver) => {
+		Socket.on('connection', (id, ver) => {
 			Socket.on('disconnect', () => {if(dCon) dCon(); ioReset()});
-			Socket.on('id', id => {Socket.id=id; if(idx) idx(id)});
-			if(vId.v && vId.v != ver) location.reload(); vId.v=ver;
-			console.log("Connected",vId.textContent=ver);
-			con(Socket.id=id); Socket.c=1;
+			if(SData.v && SData.v !== ver) { //Update available
+				utils.remCookie('uid');
+				location.reload();
+			}
+			vId.textContent = SData.v = ver;
+			console.log("Connected", ver);
+			utils.setCookie('uid', id, 4*3600);
+			con(SData.id = id);
+			SData.c = 1;
 		});
 	}
 }
 
 window.onload = formLoad;
 function formLoad() {
+	SData.id = utils.getCookie('uid');
 	QData=utils.fromQuery(location.search);
 	console.log("Run test with %ctest()",'background:#000;color:#db0');
 	DB=document.body, DS=DB.style, BDF='backdropFilter' in DS;
 	initLayout(); initBg(); statusMsg("Connecting...");
-	ioInit('form', () => { //Connect:
-		statusMsg(); if(!Socket.c) { //First:
+	ioInit('form', () => { //Connect
+		statusMsg();
+		if(!SData.c) { //First time
 			if(QData.id) {
 				fAdc.value='p'; fAdc.onchange();
 				fTitle.value=QData.id; getEv();
@@ -110,16 +118,16 @@ function formLoad() {
 		}
 		Socket.on('ack', (ev, stat, e) => {
 			console.log(`ACK ${stat?'true':'false'}: ${ev,e?e:''}`);
-			if(!stat) { //Server-side errors:
+			if(!stat) {
 				showInfo(`Server Error: ${e||'{UNKNOWN}'}`);
-				if(ev == 'sendForm') { //Form error:
+				if(ev == 'sendForm') {
 					let ss=sButton.style; ss.display=ss.opacity=null, PdfSub=0;
 				} else if(ev == 'getEvent') genEvent(null,e);
 			} else if(ev == 'sendForm') {
 				showInfo("Form submitted successfully.", 'rgba(0,150,20,.8)');
 			} else if(ev == 'getEvent') genEvent(e);
 		});
-	}, () => { //Disconnect:
+	}, () => { //Disconnect
 		statusMsg("Connection To Server Lost!");
 		let ss=sButton.style; ss.display=ss.opacity=null, PdfSub=0;
 	});
@@ -165,19 +173,23 @@ function initLayout() {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
 		muReject.hidden=1; EvData=null; fTitle.value=''; fAdc.onchange();
 	}
-	//Submit:
-	sButton.onclick = () => {
+	//Submit
+	sButton.onclick = async () => {
 		if(PdfSub) return;
 		if(fAdc.value!='a' && !EvData) return showInfo("Error: Please Enter ID");
-		if(PdfData) { //Submit:
-			let t=fType.value; showInfo("Submitting Data...", 'rgba(0,150,200,.8)');
+		if(PdfData) {
+			//Fade out submit button
+			let ss = sButton.style;
+			ss.transition='opacity .5s ease-out', ss.opacity=0, PdfSub=1;
+			setTimeout(() => {if(!ss.opacity) ss.display='none'}, 550);
+			//Upload & submit
+			showInfo("Uploading Receipts...", 'rgba(0,150,200,.8)');
+			if(await sendReceipts()) return;
+			showInfo("Submitting Data...", 'rgba(0,150,200,.8)');
+			let t = fType.value;
 			Socket.emit('sendForm', fTitle.n, utils.formatDate(utils.getDateTime(fDate)),
-				fName.value, fMail.value, fMatCost.num, PdfData, getReceipts(),
-				aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
-			//Fade out submit button:
-			let ss=sButton.style; ss.transition='opacity .5s ease-out', ss.opacity=0;
-			setTimeout(() => {if(!ss.opacity) ss.display='none'}, 550); PdfSub=1;
-		} else { //Generate PDF:
+				fName.value, fMail.value, fMatCost.num, PdfData, aTable.sl, t=='ssn'?2:(t=='sgn'?1:0));
+		} else { //Generate PDF
 			let e=genPdf(); if(e) return showInfo("Form Error: "+e);
 			showInfo("Generated PDF Preview! Please Press Submit.", 'rgba(0,150,200,.8)');
 			sButton.textContent="Submit PDF";
@@ -256,15 +268,41 @@ function evApply() {
 		u=r[i],s=a[i+1].children; s[0].firstChild.value=u.name,
 		s[1].firstChild.value=u.level||"None", s[3].firstChild.set(u.fee);
 	}
-	if(nCont("_t") || nCont("safety")) fType.value='ssn';
+	if(nCont("safety")) fType.value='ssn';
 	else if(nCont("_s") || nCont("sign-off") || nCont("sign off")) fType.value='sgn';
 	else fType.value='mkr';
 }
 
-function getReceipts() {
-	let rList = [];
-	if(fMatCost.num) for(let f of fMatFiles.files) rList.push({name:f.name, type:f.type, data:f});
-	return rList;
+async function sendReceipts() {
+	if(!fMatCost.num) return;
+	try {
+		let fl=fMatFiles.files, fHdr=[], fDat=[], f, b, l, len=0;
+		console.log("Files", fl);
+		//Read data
+		for(f of fl) {
+			b=await f.bytes(), l=b.byteLength;
+			fHdr.push({n:f.name, t:f.type, l});
+			fDat.push(b), len += l;
+		}
+		//Parse to binary
+		fHdr = new TextEncoder().encode(JSON.stringify(fHdr));
+		f = new Uint32Array([l = fHdr.byteLength]), l += 4;
+		let data = new Uint8Array(l + len);
+		data.set(new Uint8Array(f.buffer));
+		data.set(fHdr, 4);
+		for(f of fDat) data.set(fDat, l), l += f.byteLength;
+		//Upload
+		const r=await fetch(new Request(`/upload?id=${SData.id}`, {method:'POST', body:data}));
+		f=await r.text();
+		if(r.status !== 200 || f !== "OK") {
+			f=utils.mkDiv(null, null, null, f).textContent;
+			throw `Error ${r.status}: ${f}`;
+		}
+		console.log("Files uploaded!");
+	} catch(e) {
+		showInfo(`File Upload ${e}`);
+		return 1;
+	}
 }
 
 //---------------------------------------- PDF Generator ----------------------------------------
@@ -360,7 +398,7 @@ function showInfo(msg, bg) {
 	console.info(msg); infoBox.textContent=msg;
 	if(!bg) bg='rgba(150,20,0,.8)'; if(BDF) bg=bg.substr(0,bg.lastIndexOf(',')+1)+'.5)';
 	let es=infoBox.style; es.background=bg, es.transition=null, es.opacity=0;
-	setTimeout(() => { es.transition='opacity .5s ease-out', es.opacity=1; },0);
+	setTimeout(() => {es.transition='opacity .5s ease-out', es.opacity=1},0);
 }
 function selBoxValue(sb) {let o=sb.selectedOptions; return o[0]?o[0].text:null}
 

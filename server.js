@@ -1,5 +1,5 @@
 //Instructor Form, Pecacheu 2026. GNU GPL v3
-const VER='v3.4.0';
+const VER='v3.4.1';
 
 import fs from 'fs';
 import path from 'path';
@@ -13,13 +13,16 @@ import {OTP} from 'otplib';
 import router from 'raiutils/router';
 import schema from 'raiutils/schema';
 import 'raiutils';
+
 let Cli={}, SrvIp, Mailer;
 
 //Config Options
 const Debug=0, Port=8080, SendTimeout=15000, ReqTimeout=5000,
+IDTimeout=4*3600000, //4 Hours
+MaxUpload=1e9, //1GB
 App=import.meta.dirname, Web=path.join(App, "root"),
 VDir={'utils.js': path.join(App, "node_modules/raiutils/utils.min.js")},
-Conf=JSON.parse(fs.readFileSync('config.json')),
+Conf=JSON.parse(fs.readFileSync(path.join(App, 'config.json'))),
 Otp=new OTP(),
 
 //Filter Patterns
@@ -27,10 +30,10 @@ pTitle=/^[\w\-:.<>()[\]&*%!', ]+$/, pText=/^[\w\+\-()'. ]+$/,
 pEmail=/^\w+(?:[\.+-]\w+)*@\w+(?:[\.-]\w+)*\.\w\w+$/, pDate=/^[\w,: ]+$/,
 
 //Schemas
-rDatatFmt={t:'list',min:0,f:{
-	name:{t:'str',max:200},
-	type:{t:'str',max:50},
-	data:{t:'obj',c:Buffer}
+RHdrFmt={t:'list',f:{
+	n:{t:'str',max:200},
+	t:{t:'str',max:50},
+	l:{t:'int',min:1}
 }},
 
 //Messages
@@ -104,14 +107,14 @@ async function getEvData(ev) {
 		desc:stripHtml(d.Details.DescriptionHtml).result, hosts:[], rsvp:[]
 	};
 	//Date & Time:
-	let dt=formatDate(new Date(evm.dRaw)), ds=dt.indexOf(' ',6);
+	let dt=utils.formatDate(new Date(evm.dRaw)), ds=dt.indexOf(' ',6);
 	evm.time=dt.substr(0,ds), evm.date=dt.substr(ds+1);
 	//Fee Info:
-	for(let i=0,l=rt.length; i<l; i++) evm.fRaw=Math.max(rt[i].BasePrice||0,evm.fRaw);
-	evm.fee=evm.fRaw?formatCost(evm.fRaw):"Free";
+	for(let r of rt) evm.fRaw = Math.max(r.BasePrice||0, evm.fRaw);
+	evm.fee=evm.fRaw?utils.formatCost(evm.fRaw):"Free";
 	//RSVP:
-	for(let i=0,l=dr.length,u; i<l; i++) {
-		try {u=await getEvUser(dr[i],hd)} catch(e) {throw "User["+i+"] "+e}
+	for(let u of dr) {
+		try {u=await getEvUser(u,hd)} catch(e) {throw "User["+i+"] "+e}
 		if(u.h) evm.hosts.push(u); else evm.rsvp.push(u);
 	}
 	evm.yes -= evm.hosts.length;
@@ -121,10 +124,10 @@ async function getEvData(ev) {
 }
 async function getEvUser(u,hd) {
 	let fn,ln,em,r=u.RegistrationFields,t=u.RegistrationType;
-	for(let i=0,l=r.length; i<l; i++) switch(r[i].SystemCode) {
-		case 'FirstName': fn=r[i].Value; break;
-		case 'LastName': ln=r[i].Value; break;
-		case 'Email': em=r[i].Value;
+	for(let u of r) switch(u.SystemCode) {
+		case 'FirstName': fn=u.Value; break;
+		case 'LastName': ln=u.Value; break;
+		case 'Email': em=u.Value;
 	}
 	if((!fn && !ln) || !em || !t || !t.Name || !u.Contact) throw "Data Error";
 	//Get Member Level
@@ -151,40 +154,86 @@ function httpsReq(uri, mt, hdr, rb) {
 
 function startServer() {
 	function onReq(req, res) {
-		if(Debug) console.log("[ROUTER]",req.url);
-		router.handle(Web,req,res,VDir);
+		if(Debug) console.log("[ROUTER]", req.url);
+		if(req.method === 'POST' && req.url.startsWith('/upload?')) {
+			//ID check
+			const sck = Cli[utils.fromQuery(req.url.slice(8)).id];
+			if(!sck) return httpErr(0, res, 401, "Bad ID");
+			delete sck.rData;
+			//Read data
+			let buf;
+			req.on('data', b => {
+				if((buf?buf.length:0)+b.length > MaxUpload) {
+					req.removeAllListeners();
+					return httpErr(sck, res, 413, "File(s) too large");
+				}
+				buf = buf?Buffer.concat([buf,b]):b;
+			});
+			req.on('end', () => {try {
+				//Parse header
+				if(!buf) throw "No data";
+				let ofs = buf.readUint32LE(0), f, n;
+				if(!ofs || ofs >= buf.length) throw `Bad header len ${ofs}`;
+				ofs += 4;
+				const hdr = JSON.parse(buf.toString('utf8', 4, ofs));
+				schema.checkType(hdr, RHdrFmt);
+				//Split data
+				for(f of hdr) {
+					n = ofs + f.l;
+					f.d = buf.subarray(ofs, n);
+					ofs = n;
+				}
+				if(buf.length !== ofs) throw `Payload length mismatch ${buf.length} != ${ofs}`;
+				sck.cliLog('magenta', "Upload");
+				console.log(hdr);
+				sck.rData = hdr;
+				res.end("OK");
+			} catch(e) {httpErr(sck, res, 400, `Receipts ${e}`)}});
+		} else router.handle(Web, req, res, VDir);
 	}
 	let srv=(SrvOpt?https.createServer(SrvOpt,onReq):http.createServer(onReq)).listen(Port, () => {
 		console.log(`Listening at ${C.bgGreen(`http${SrvOpt?'s':''}://${SrvIp}:${Port}`)}\n`);
 	});
 	//Init Socket.io
 	new io(srv).on('connection', sck => {
-		sck.adr=sck.handshake.address.substr(7); //TODO Always blank
-		console.log(C.cyan("[SCK] Connecting..."));
+		sck.adr = sck.handshake.address.substr(7); //TODO Always blank
+		console.log(C.cyan("[SCK] New client"));
 		sck.on('disconnect', () => {
-			sck.removeAllListeners();
-			console.log(C.red("[SCK] Connection dropped!"));
+			console.log(C.red("[SCK] Connection dropped during init"));
 		});
-		function badTkn(p) {
-			console.log(C.red("[SCK] Bad token"),sck.adr,`'${p}'`);
-			return setTimeout(() => sck.emit('badTkn'), 1000);
-		}
-		sck.once('type', async (cType, tkn) => {
-			if(tyS(cType)) return console.log(C.red("[SCK] Bad cType"),sck.adr);
+		sck.once('type', async (cType, tkn, id) => {
+			if(cType !== 'form') return console.log(C.red("[SCK] Bad type"), sck.adr);
 			sck.type = cType;
-			sck.cliLog = (clr, msg) => {console.log(C[clr](`[${sck.type}:${sck.ind}] `+msg))}
+			sck.cliLog = (clr, msg) => {console.log(C[clr](`[${sck.type}:${sck.uid}] `+msg))}
 			sck.cliErr = msg => {sck.cliLog('red',msg)}
-			let v; try {v=await Otp.verify({token:tkn, secret:Conf.otpkey})} catch(e) {sck.cliErr(e)}
-			if(v && v.valid) initCli(sck,tkn); else badTkn(tkn);
+			if(id) { //Verify by ID
+				sck.uid = id;
+				const oSck = Cli[id];
+				if(!oSck) {
+					sck.cliErr(`Bad ID '${id}'`);
+					return setTimeout(() => sck.emit('badTkn'), 1000);
+				}
+				clearTimeout(oSck.dTmr);
+			} else { //Verify by token
+				let v;
+				try {v=await Otp.verify({token:tkn, secret:Conf.otpkey})} catch(e) {sck.cliErr(e)}
+				if(!v || !v.valid) {
+					sck.cliErr(`Bad token '${tkn}'`);
+					return setTimeout(() => sck.emit('badTkn'), 1000);
+				}
+				sck.uid = crypto.randomUUID();
+			}
+			console.log(C.yellow(`[SCK] Connected tkn=${tkn}`, cliToStr(sck)));
+			initCli(sck);
 		});
 		sck.emit('type'); //Request type
 	});
 }
 
-function initCli(sck,tkn) {
-	let CT=Cli[sck.type]; if(!CT) CT=Cli[sck.type]=[]; sck.ind=CT.length; CT.push(sck);
-	console.log(C.yellow("[SCK] New client",sck.adr,tkn,`{type=${sck.type},id=${sck.ind}}`));
-	if(Debug) console.log("clientList:",logClientList());
+function initCli(sck) {
+	Cli[sck.uid] = sck;
+	if(Debug) logClientList();
+	sck.removeAllListeners();
 
 	sck.on('getEvent', ev => {
 		const EV='getEvent';
@@ -194,9 +243,10 @@ function initCli(sck,tkn) {
 		.catch(e => {EvLoad=0,ack(sck,EV,"Auth "+e)});
 	});
 
-	sck.on('sendForm', (title, date, uName, uMail, cMat, pdf, rData, aList, sType) => {
-		const EV='sendForm';
-		//Error Checking:
+	sck.on('sendForm', (title, date, uName, uMail, cMat, pdf, aList, sType) => {
+		const EV='sendForm', rData=sck.rData;
+		delete sck.rData;
+		//Error Checking
 		if(tyS(title) || title.length > 120 || !pTitle.test(title)) return ack(sck,EV,"Bad input: title");
 		if(title.indexOf(':') == -1 || Number(title)) return ack(sck,EV,"Invalid title! Did you mean to auto-fill via class ID? To auto-fill, please select the name field again and press ENTER or ⏎");
 		if(tyS(date) || date.length > 80 || !pDate.test(date)) return ack(sck,EV,"Bad input: date");
@@ -204,19 +254,19 @@ function initCli(sck,tkn) {
 		if(tyS(uMail) || !pEmail.test(uMail)) return ack(sck,EV,"Bad input: instructorMail");
 		if(tyN(cMat) || cMat < 0) return ack(sck,EV,"Bad input: materialCost");
 		if(tyS(pdf) || pdf.length < 1) return ack(sck,EV,"Bad input: pdf");
-		try {schema.checkType(rData, rDatatFmt)} catch(e) {return ack(sck,EV,"ReceiptList "+e)}
-		if(cMat && !rData.length) return ack(sck,EV,"Receipts required if materialCost > $0");
+		if(cMat && !rData) return ack(sck,EV,"Receipts required if materialCost > $0");
 		if(pdf.length > 20000) return ack(sck,EV,"Pdf exceeded max size 20KB");
 		if(!Array.isArray(aList) || aList.length > 200) return ack(sck,EV,"Bad input: attendeeList");
 		if(!(sType >= 0) || sType && !aList.length) return ack(sck,EV,"Bad input: sType");
-		//Attendee List Error Checking:
-		for(let i=0,a,e=0,l=aList.length; i<l; i++) {
+
+		//Attendee List Error Checking
+		for(let i=0,a,e=0,l=aList.length; i<l; ++i) {
 			a=aList[i]; if(a.length !== 4) e="Invalid Length";
 			a.splice(0,2,a[0]+a[1]);
 			if(tyS(a[0]) || a[0].length > 80 || !pText.test(a[0])) e="Name Invalid";
 			if(tyS(a[1]) || a[1].length > 40) e="Level Invalid";
 			if(tyS(a[2]) || a[2].length > 15) e="Price Invalid";
-			if(e) return ack(sck,EV,"Bad input: attendeeList["+i+"]: "+e);
+			if(e) return ack(sck, EV, `Bad input: attendeeList[${i}]: ${e}`);
 		}
 
 		sck.cliLog('yellow',`(${EV}) Submitting '${title}'...`);
@@ -228,12 +278,12 @@ function initCli(sck,tkn) {
 		if(tyS(ev)) return ack(sck,EV,"Error generating event data: "+ev[0]);
 
 		let sb = (uMail=='test@example.com'?"<<FORMBOT_TEST>>":"FormBot: ")+title+" on "+date,
-		aTab = aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+(cMat?"Materials: "+formatCost(cMat):'')+"<p>Event Attendee List:</p>"+genTable(aList):'',
+		aTab = aList.length?(sType==2?"<p style='color:#f00'><b>No NovaPass or tool sign off. Safety Sign-Off Only.</b></p>":'')+(cMat?"Materials: "+utils.formatCost(cMat):'')+"<p>Event Attendee List:</p>"+genTable(aList):'',
 		atp = title.indexOf('-'),
 		atList = [{filename:title.substr(0,atp==-1?title.length:atp).replace(/\s/g,'')+'.pdf', contentType:router.types['.pdf'], content:pdf}];
 
 		//Receipts
-		for(let r of rData) atList.push({filename:r.name, contentType:r.type, content:r.data});
+		if(rData) for(let r of rData) atList.push({filename:r.n, contentType:r.t, content:r.d});
 
 		//Send Emails
 		let al=AccAddr.slice(),ok=0; al.push(uMail);
@@ -250,13 +300,12 @@ function initCli(sck,tkn) {
 		}
 	});
 
-	//Handle disconnection:
-	sck.removeAllListeners('disconnect');
-	sck.on('disconnect', function() {
-		sck.removeAllListeners(); sck.cliErr("Client disconnected"); CT.splice(sck.ind,1);
-		for(let i=0,l=CT.length,ind=sck.ind; i<l; i++) {let s=CT[i]; if(s.ind > ind) s.emit('id',s.ind--)}
+	//Handle disconnection
+	sck.once('disconnect', () => {
+		sck.cliErr("Connection lost");
+		sck.dTmr = setTimeout(() => {delete Cli[sck.uid]}, IDTimeout);
 	});
-	sck.emit('connection', sck.ind, VER);
+	sck.emit('connection', sck.uid, VER);
 }
 
 function tyS(v) {return typeof v != 'string'}
@@ -269,7 +318,7 @@ function genTable(tb) {
 		if(!a[2]) a[2]=''; lh += "<tr "+(i%2?'':trEvenStyle)+"><td style='"+tdStyle+';'+nameStyle+"'>"+a[0]+"</td>"+
 		"<td style='"+tdStyle+';'+mailStyle+"'>"+a[1]+"</td><td style='"+tdStyle+';'+userStyle+"'>"+a[2]+"</td></tr>";
 	}
-	for(let i=0,l=tb.length; i<l; i++) makeRow(tb[i],i);
+	for(let i=0,l=tb.length; i<l; ++i) makeRow(tb[i],i);
 	return "<table style='"+tStyle+"'><tr style='"+trFirstStyle+
 	"'><th style='width:40%'>Name</th><th>Member Level</th><th>Payment</th></tr>"+lh+"</table>";
 }
@@ -280,7 +329,7 @@ function genEvent(ev, host) {
 	if(!ev) return "<p>FormBot Couldn't Find This Event.</p>";
 	try {
 		let eh=ev.hosts, hc="", chgHost=1;
-		for(let i=0,l=eh.length,n; i<l; i++) {
+		for(let i=0,l=eh.length,n; i<l; ++i) {
 			n=eh[i].name;
 			hc+=(i?', ':'')+`<a href='${ev.link}' target='_blank' style='${muLink+muVen}'>${n}</a>`;
 			if(host == n) chgHost=0;
@@ -290,55 +339,37 @@ function genEvent(ev, host) {
 	} catch(e) { return [e.toString()]; }
 }
 
-function ack(cli, eType, stat) {
-	if(tyS(stat)) { cli.cliLog('green',"ACK true"); cli.emit('ack',eType,true,stat); }
-	else { cli.cliErr(`(${eType}) `+stat); cli.emit('ack',eType,false,stat); }
+function ack(sck, eType, stat) {
+	if(tyS(stat)) sck.cliLog('green', "ACK true"), sck.emit('ack', eType, true, stat);
+	else sck.cliErr(`(${eType}) `+stat), sck.emit('ack', eType, false, stat);
+}
+
+function cliToStr(sck) {
+	return `{type=${sck.type}, adr=${sck.adr}, id=${sck.uid}}${sck.dTmr?C.dim(" [Disconnected]"):''}`;
 }
 
 function logClientList() {
-	let ck=Object.keys(Cli), s="";
-	for(let t=0,k=ck.length,cl; t<k; t++) {
-		s += (t==0?"":", ")+`'${ck[t]}':[`; cl=Cli[ck[t]];
-		for(let i=0,l=cl.length; i<l; i++) s += (i==0?"":",")+cl[i].adr;
-		s += "]";
-	}
-	return s;
+	let c;
+	console.log("Clients:");
+	for(c in Cli) console.log("-", C.yellow(cliToStr(Cli[c])));
 }
 
 function runInput() {
-	console.log("Type 'list' to list clients. Type 'q' to quit.");
+	console.log("Type 'list' to list clients or 'q' to quit.");
 	process.stdin.resume(); process.stdin.setEncoding('utf8');
 	process.stdin.on('data', cmd => {
 		for(let s; (s=cmd.search(/[\n\r]/)) != -1;) cmd=cmd.substring(0,s);
 		if(cmd == 'exit' || cmd == 'q') {
-			console.log(C.magenta("Exiting...")); process.exit();
-		} else if(cmd == 'list') {
-			console.log("clientList:",C.yellow(logClientList()));
-		}
+			console.log(C.magenta("Exiting..."));
+			process.exit();
+		} else if(cmd == 'list') logClientList();
 	});
 }
 
-//From utils.js
-function formatCost(n,sym) {
-	if(!sym) sym = '$'; if(!n) return sym+'0.00';
-	const p = n.toFixed(2).split('.');
-	return sym+p[0].split('').reverse().reduce((a, n, i) =>
-	{ return n=='-'?n+a:n+(i&&!(i%3)?',':'')+a; },'')+'.'+p[1];
-}
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function fixedNum2(num) { if(num <= 9) return '0'+num; return num; }
-function suffix(n) {
-	let j=n%10, k=n%100;
-	if(j==1 && k!=11) return n+"st";
-	if(j==2 && k!=12) return n+"nd";
-	if(j==3 && k!=13) return n+"rd";
-	return n+"th";
-}
-function formatDate(d) {
-	if(d == null || !d.getDate || !d.getFullYear()) return "Invalid Date";
-	const mins=d.getMinutes(), month=d.getMonth(), day=d.getDate(), year=d.getFullYear();
-	let hour=d.getHours(), pm=false; if(hour >= 12) { pm = true; hour -= 12; } if(hour == 0) hour = 12;
-	return hour+':'+fixedNum2(mins)+' '+(pm?'PM':'AM')+' '+months[month]+' '+suffix(day)+', '+year;
+function httpErr(sck, res, code, msg) {
+	const e = `Upload Code ${code}: ${msg}`;
+	if(sck) sck.cliErr(e); else console.error(e);
+	res.writeHead(code,''), res.write(`<pre style='font-size:16pt'>${msg}</pre>`), res.end();
 }
 
 await begin();
