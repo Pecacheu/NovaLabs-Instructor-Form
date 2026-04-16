@@ -1,6 +1,6 @@
 /* Instructor Form, Pecacheu 2026. GNU GPL v3 */
 
-#home { position:absolute; top:15; left:20; font-weight:600; color:#000; text-decoration:none; }
+#home { position:absolute; top:15px; left:20px; font-weight:600; color:#000; text-decoration:none; }
 #home:hover { text-decoration:underline; }
 
 /* Styles */
@@ -8,8 +8,10 @@ body { background:black; margin:0; }
 p,em { margin:.5em 0; }
 h1 { margin:0; font-family:"Ubuntu Titling"; text-align:center; }
 h5 { text-align:center; margin-top:0; font-size:14pt; font-weight:500; }
+h3,h6 { font-size:12pt; margin:.5em 6px; }
+h3 { font-weight:400; }
 h4 { margin:.5em 0; }
-h6 { font-size:12pt; margin:.5em 6px; font-weight:600; }
+h6 { font-weight:600; }
 em { display:block; }
 i,em { font-size:14pt; }
 a { color:#44f; }
@@ -28,10 +30,14 @@ button:active { background:#dcdcdc; color:#000; }
 input[type=email] { color:#5299e2; }
 input[type=file] { padding:4px 10px; height:auto; width:500px; max-width:100%; }
 input::file-selector-button { display:none; }
+label { font-size:14pt; }
 
 /* Content */
 #statusBg { background:grey; width:100%; height:100%; position:fixed; z-index:999; }
 #bgBox { position:fixed; z-index:-1; }
+#header { text-align:center; }
+#sButton { margin:1em 0; }
+#muApply { margin-left:0.6em; }
 #statusText {
 	position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
 	color:white; font:300 50px 'Open Sans'; text-align:center; white-space:pre-wrap;
@@ -52,7 +58,7 @@ input::file-selector-button { display:none; }
 	display:flex; flex-flow:column;
 }
 .pdfExit {
-	padding:10; font:16pt 'Open Sans'; text-align:center;
+	padding:10px; font:16pt 'Open Sans'; text-align:center;
 	background:#c33; color:#fff;
 }
 
@@ -75,7 +81,7 @@ input::file-selector-button { display:none; }
 .muDesc {
 	white-space:initial; margin-top:6px;
 	line-height:1.35em; display:-webkit-box;
-	-webkit-line-clamp:4; -webkit-box-orient:vertical;
+	line-clamp:4; -webkit-line-clamp:4; -webkit-box-orient:vertical;
 	height:84px; /* Hard-Coded fallback for non-webkit. */
 }
 .muMeta { margin-top:8px; float:right; }

@@ -2,60 +2,60 @@
 <html><head>
 	<title>Instructor Formbot</title>
 	<!-- Configure Mobile Scaling -->
-	<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
+	<meta name=viewport content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,shrink-to-fit=no">
 	<!-- Libraries -->
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="resources/jspdf.min.js"></script>
-	<script src="utils.js"></script>
+	<script src=utils.js></script>
 	<!-- Scripts -->
-	<link rel="stylesheet" type="text/css" href="formStyle.css">
-	<script src="form.js"></script>
+	<link rel=stylesheet type="text/css" href=formStyle.css>
+	<script src=form.js></script>
 </head><body>
-	<div id="statusBg"><div id="statusText">Loading...</div></div>
-	<canvas id="bgBox"></canvas>
-	<div id="contentBox">
+	<div id=statusBg><div id=statusText>Loading...</div></div>
+	<canvas id=bgBox></canvas>
+	<div id=contentBox>
 		<a id=home href="https://forestfire.net">&lt;- &#x1f3e0;</a>
-		<h1 id="header" style="text-align:center">Loading Page</h1>
+		<h1 id=header>Loading Page</h1>
 		<h5>Instructor Payment &amp; Maker Sign-off</h5>
 		<h4>Class Info</h4>
-		<p><select id="fAdc" class="field">
+		<p><select id=fAdc class=field>
 			<option selected disabled value="">Select One</option>
-			<option value="p">On Events Portal</option>
-			<option value="a">Ad-Hoc</option>
+			<option value=p>On Events Portal</option>
+			<option value=a>Ad-Hoc</option>
 		</select></p>
-		<span id="clsData" hidden>
-			<p title="Obtain ID at wautils.nova-labs.org">Event <span id="Ein"></span>: <input id="fTitle" class="field" type="text" charPattern="[\w\-:.<>()[\]&*%!', ]"></p>
-			<p id="muMatch"></p>
-			<button id="muReject" hidden>This Isn't My Event</button><button id="muApply" style="margin-left:0.6em" hidden>Apply Event</button>
-			<p>Class Date: <input id="fDate" class="field" type="datetime-local"></p>
-			<p>Instructor: <input id="fName" class="field" type="text" charPattern="[\w\+\-()'. ]" autocomplete="name"></p>
-			<p><span id="Pem"></span>: <input id="fMail" class="field" type="email" charPattern="[\w\-@.]" autocomplete="email"></p>
-			<p>Payment: <select id="fPay" class="field">
-				<option selected value="pap">PayPal</option>
-				<option value="adp">ADP</option>
-				<option value="chk">Check (Approval Required)</option>
+		<span id=clsData hidden>
+			<p title="Obtain ID at wautils.nova-labs.org">Event <span id=Ein></span>: <input id=fTitle class=field type=text charPattern="[\w\-:.<>()[\]&*%!', ]"></p>
+			<p id=muMatch></p>
+			<button id=muReject hidden>This Isn't My Event</button><button id=muApply hidden>Apply Event</button>
+			<p>Class Date: <input id=fDate class=field type="datetime-local"></p>
+			<p>Instructor: <input id=fName class=field type=text charPattern="[\w\+\-()'. ]" autocomplete=name></p>
+			<p>Email: <input id=fMail class=field type=email charPattern="[\w\-@.]" autocomplete=email></p>
+			<p>Payment: <select id=fPay class=field>
+				<option selected value=adp>ADP</option>
+				<option value=don>Donate My Profit</option>
 			</select></p>
 			<h4>Cost Breakdown</h4>
-			<p>Class Type: <select id="fType" class="field">
-				<option value="mkr">Project (No Sign-Off)</option>
-				<option value="sgn">Tool Sign-Off</option>
-				<option value="ssn">Safety Sign-Off - Supervised Access</option>
+			<p>Class Type: <select id=fType class=field>
+				<option value=mkr>Project (No Sign-Off)</option>
+				<option value=sgn>Tool Sign-Off</option>
+				<option value=ssn>Safety Sign-Off - Supervised Access</option>
 			</select></p>
-			<p>Cost/Student: <input id="fCost" class="field"></p>
-			<p>Students: <input id="fCount" class="field"></p>
-			<p>Materials: <input id="fMatCost" class="field"> <i>(Direct class expenses)</i></p>
+			<p>Cost/Student: <input id=fCost class=field></p>
+			<p>Students: <input id=fCount class=field></p>
+			<p>Materials: <input id=fMatCost class=field> <i>(Direct class expenses)</i></p>
 			<span hidden>
 				<h4>Attach receipt(s) below</h4>
-				<input id="fMatFiles" class="field" type="file" multiple>
+				<input id=fMatFiles class=field type=file multiple>
 				<em>When the system file box appears, select one or multiple files to attach. Please send receipts only as PDFs, PNG, or JPEG images.</em>
 			</span>
-			<p hidden>NovaLabs Rate: <input id="fRate" class="field"></p>
-			<h6 id="fRateInfo">30% NovaLabs Rate</h6>
-			<button id="sButton" style="margin:1em 0">Preview Summary</button>
+			<p hidden>NovaLabs Rate: <input id=fRate class=field></p>
+			<h6 id=fRateInfo>30% NovaLabs Rate</h6>
+			<p><input id=fDonate type=checkbox> <label for=fDonate>Donate class proceeds to Nova Labs?</label></p>
+			<button id=sButton>Preview Summary</button>
 		</span>
-		<p id="infoBox"></p>
+		<p id=infoBox></p>
 		<h4>Registrant List</h4>
-		<table><tbody id="aTable"><tr><th>Name</th><th>Member Level</th><th>Notes</th><th>Payment</th></tr></tbody></table>
-		<h6 style="font-weight:400">Formbot <span id=vId></span> by <a href="https://github.com/pecacheu">Pecacheu</a></h6>
+		<table><tbody id=aTable><tr><th>Name</th><th>Member Level</th><th>Notes</th><th>Payment</th></tr></tbody></table>
+		<h3>Formbot <span id=vId></span> by <a href="https://github.com/pecacheu">Pecacheu</a></h3>
 	</div>
 </body></html>

@@ -24,16 +24,16 @@ function bgRun() {
 		bSkp=0; let t=performance.now();
 		bgPos=utils.norm(bgPos + BgSpd*(bTs?t-bTs:0),-400,0), bTs=t;
 		let p=utils.norm(bgPos+(scrollY/4),-400,0);
-		//Tiles:
+		//Tiles
 		let ctx=bgBox.c, r=bgBox.r; ctx.setTransform(r,0,0,r,0,0);
 		let w=bgBox.w,h=bgBox.h,bw=w+BgSize,bh=h+BgSize,x,y;
 		for(y=0; y<bh; y+=BgSize) for(x=0; x<bw; x+=BgSize) ctx.drawImage(bgBox.i,p+x,p+y);
-		//Gradient Fill:
+		//Gradient Fill
 		w*=r,h*=r; let sx=1,sy=1; if(w>h) ctx.scale(1,sy=h/w); else ctx.scale(sx=w/h,1);
 		let gw=w/sx,gh=h/sy, w2=gw/2,h2=gh/2, g=ctx.createRadialGradient(w2,h2,0,w2,h2,w>h?w:h);
 		g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.8,'rgba(0,0,0,.9');
 		ctx.fillStyle=g; ctx.fillRect(0,0,gw,gh);
-		//Blur:
+		//Blur
 		if(!bgGPU) { //Software Blur - Uses CPU, runs better on desktop.
 			let b=contentBox.boundingRect, bX=Math.floor(b.x*r), bY=Math.floor(b.y*r), bW=Math.floor(b.width*r), bH=Math.floor(b.height*r),
 			px=ctx.getImageData(bX,bY,bW,bH); boxBlur4(px.data,bW,bH,12); ctx.putImageData(px,bX,bY);
@@ -143,15 +143,15 @@ function initLayout() {
 			while(n < aTable.childElementCount) layoutRemRow();
 		}
 	}
-	//Form Interaction:
+	//Form Interaction
 	fAdc.onchange = () => {
 		Ein.textContent = fAdc.value=='a'||EvData?"Name":"ID";
 		let p=fAdc.value=='p'; fAdc.parentNode.hidden=fTitle.disabled=p&&EvData;
 		fType.disabled=fDate.disabled=fCost.disabled=p; clsData.hidden=0;
 	}
-	(fPay.onchange = () => {
-		Pem.textContent = (fPay.value=='pap'?"PayPal ":'')+"Email";
-	})();
+	(fPay.onchange = e => {
+		if(e) fDonate.checked = fPay.value==='don';
+	})(1);
 	fCost.onnuminput = () => {
 		let v=fCost.num, a=aTable.children;
 		for(let i=1,l=a.length; i<l; i++) a[i].children[3].firstChild.set(v);
@@ -161,14 +161,18 @@ function initLayout() {
 	fMatCost.onnuminput = () => {
 		fMatFiles.parentNode.hidden = !fMatCost.num;
 	}
+	fDonate.onchange = () => {
+		fPay.value = fDonate.checked?'don':'adp';
+		fPay.onchange();
+	}
 	let fd=document.getElementsByClassName('field');
 	for(let i=0,l=fd.length,f; i<l; i++) {
 		(f=fd[i]).addEventListener('focus',rstForm);
 		charPat(f, f.getAttribute('charPattern'));
 	}
-	//Event Autofill:
-	fTitle.onkeypress = (e) => {if(e.key == 'Enter') getEv()}
-	fTitle.oninput = (e) => {if(e.inputType == 'insertFromPaste' || !e.inputType) getEv()}
+	//Event Autofill
+	fTitle.onkeypress = e => {if(e.key == 'Enter') getEv()}
+	fTitle.oninput = e => {if(e.inputType == 'insertFromPaste' || !e.inputType) getEv()}
 	muReject.onclick = () => {
 		if(muMatch.firstChild) muMatch.firstChild.remove();
 		muReject.hidden=1; EvData=null; fTitle.value=''; fAdc.onchange();
@@ -238,18 +242,18 @@ function genEvent(ev,e) {
 	EvData=ev; muMatch.innerHTML=''; muReject.hidden=0;
 	const box=utils.mkDiv(muMatch,'muEvent'); if(e) return box.innerHTML="<b>Error:</b> "+e;
 	rstForm();
-	//Info:
+	//Info
 	let t=utils.mkEl('a',box,'muTitle'), i=utils.mkDiv(box,'muDetail'),
 	v=utils.mkEl('a',i,'muVen'), l=utils.mkDiv(i,'muSub'), d=utils.mkDiv(i,'muDesc');
 	t.href=ev.link, t.target='_blank', t.textContent=ev.name, v.textContent=ev.ven, v.href=ev.link,
 	v.target='_blank', l.textContent=ev.loc, d.textContent=ev.desc;
-	//Meta:
+	//Meta
 	let m=utils.mkDiv(box,'muMeta');
 	utils.mkDiv(m,'muSub',{marginBottom:'6px'},"100% Match");
 	utils.mkDiv(m,null,null,ev.time); utils.mkDiv(m,'muSub',null,ev.date);
 	utils.mkDiv(m,'muRSVP',null,ev.yes+" Attendees<br>"+ev.wait+" Waitlist");
 	utils.mkDiv(m,null,{marginTop:6},ev.fee);
-	//Hosts:
+	//Hosts
 	let hl=utils.mkDiv(box, 'muHosts'), hc="Hosted By: ";
 	for(let i=0,l=ev.hosts.length; i<l; i++) hc += (i?', ':'')+"<a href='"
 		+ev.link+"' target='_blank' class='muVen'>"+ev.hosts[i].name+"</a>";
@@ -290,7 +294,7 @@ async function sendReceipts() {
 		let data = new Uint8Array(l + len);
 		data.set(new Uint8Array(f.buffer));
 		data.set(fHdr, 4);
-		for(f of fDat) data.set(fDat, l), l += f.byteLength;
+		for(f of fDat) data.set(f, l), l += f.byteLength;
 		//Upload
 		const r=await fetch(new Request(`/upload?id=${SData.id}`, {method:'POST', body:data}));
 		f=await r.text();
@@ -316,14 +320,14 @@ function genPdf() {
 	fN=fName.value, fP=selBoxValue(fPay), fM=fMail.value, fY=fType.value,
 	fS=fCount.num, fMC=fMatCost.num, fR=fRate.num;
 
-	//Error checking:
+	//Error checking
 	if(!fP) return "Payment Type"; if(!fT) return "Class Name";
 	if(!fDate.value) return "Class Date"; if(!fN) return "Instructor Name";
 	if(!fM) return "Instructor Email"; if(!fY) return "Class Type";
 	if(!fS || fS<0) return "Students Count"; if(!(fMC>=0)) return "Material Cost";
 	if(fR<0 || fR>100) return "NovaLabs Rate";
 
-	//Read Attendee List:
+	//Read Attendee List
 	let a=aTable.children,sl=[],rt=0; aTable.sl=sl;
 	if(a.length-1 !== fS) return "List Size must equal Student Count";
 	for(let i=1,l=a.length,s,n,r,u,p; i<l; i++) {
@@ -345,7 +349,7 @@ function genPdf() {
 		}
 	}
 
-	//Class Info:
+	//Class Info
 	pdf.setFontSize(40); pdf.setTextColor(cTitle);
 	pdf.text(8.5/2,.7,FormType,null,null,'center');
 	pdfLine(1.5,'Class Name',fT); pdfLine(2,'Date',fD);
@@ -354,21 +358,23 @@ function genPdf() {
 	pdfLine(4,'Payment',fP);
 	pdfLine(4.5,'Email',fM,cMail);
 
-	//Cost Breakdown:
+	//Cost Breakdown
 	let p=utils.formatCost(rt-fMC), t=(rt-fMC)*((100-fR)/100)+fMC, tt=utils.formatCost(t);
-	//Revenue:
+	//Revenue
 	pdf.setFontSize(20);
 	if(fMC>0) multiColor(5.5,cData,utils.formatCost(rt),cSub," Revenue - ",
 	cData,utils.formatCost(fMC),cSub," Materials = ",cData,p,cSub," Profit");
 	else multiColor(5.5,cData,fS,cSub," Paid Students = ",cData,p,cSub," Class Revenue");
-	//Reimbursement:
+	//Income
 	multiColor(5.9,cData,p,cSub," - ",cMain,"("+fR+"% NL Rate)",
-	cSub,(fMC>0)?" + Materials = ":" = ",cData,tt,cSub," Reimbursement");
+	cSub,(fMC>0)?" + Materials = ":" = ",cData,tt,cSub," Income");
+	if(fPay.value==='don') multiColor(6.3,cData,tt,cSub," Donated to Nova Labs");
+	else multiColor(6.3,cData,tt,cSub," Payable to Instructor");
 	//Step 3. Profit!
 	multiColor(10.7,cSub,"( Revenue - ",cData,tt,cSub," = ",
 	cMain,utils.formatCost(rt-t)+" Nova Labs Profit",cSub," )");
 
-	//Attendee List:
+	//Attendee List
 	pdf.addPage(); pdf.setFontSize(40); pdf.setTextColor(cTitle);
 	pdf.text(8.5/2,.7,"Attendee List",null,null,'center');
 	pdf.setFontSize(20); pdf.setTextColor(cMain);
@@ -396,7 +402,7 @@ function statusMsg(msg) {
 }
 function showInfo(msg, bg) {
 	console.info(msg); infoBox.textContent=msg;
-	if(!bg) bg='rgba(150,20,0,.8)'; if(BDF) bg=bg.substr(0,bg.lastIndexOf(',')+1)+'.5)';
+	if(!bg) bg='rgba(150,20,0,.8)'; if(BDF) bg=bg.slice(0,bg.lastIndexOf(',')+1)+'.5)';
 	let es=infoBox.style; es.background=bg, es.transition=null, es.opacity=0;
 	setTimeout(() => {es.transition='opacity .5s ease-out', es.opacity=1},0);
 }
@@ -414,7 +420,7 @@ window.test = () => {
 		{name:"Sum Ting Wong",id:5607,fee:69,ti:6},
 		{name:"Fakus Namecus-Esquire III",id:7080,fee:69,ti:0},
 	];
-	ev.yes=ev.rsvp.length; genEvent(ev); fPay.value='pap'; fPay.onchange();
+	ev.yes=ev.rsvp.length; genEvent(ev); fPay.value='adp'; fPay.onchange();
 	for(let i=1,a=aTable.children,l=a.length; i<l; i++) a[i].children[2].firstChild.selectedIndex=ev.rsvp[i-1].ti;
 	fMail.value=ev.hosts[0].email, fAdc.value='a', fMatCost.set(42.5);
 	scrollTo(0,9999); statusMsg();
