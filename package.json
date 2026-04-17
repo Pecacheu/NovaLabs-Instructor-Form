@@ -1,11 +1,41 @@
 {
+	"private": true,
 	"type": "module",
+	"scripts": {
+		"build": "npx webpack --mode production",
+		"build:dev": "npx webpack --mode development",
+		"start": "node --enable-source-maps dist/srv/server.js",
+		"dev": "npx jiti src/srv/server.ts dev"
+	},
 	"dependencies": {
 		"chalk": "^5.6.2",
+		"jspdf": "^4.2.1",
 		"nodemailer": "^8.0.1",
 		"otplib": "^13.2.1",
-		"raiutils": "^8.7.11",
+		"raiutils": "^9.1.0",
 		"socket.io": "^4.8.3",
+		"socket.io-client": "^4.8.3",
 		"string-strip-html": "^13.5.3"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@stylistic/eslint-plugin": "^5.10.0",
+		"@types/node": "^25.5.0",
+		"@types/nodemailer": "^8.0.0",
+		"css-loader": "^7.1.4",
+		"css-minimizer-webpack-plugin": "^8.0.0",
+		"eslint": "^10.0.3",
+		"eslint-plugin-import-x": "^4.16.2",
+		"fork-ts-checker-webpack-plugin": "^9.1.0",
+		"globals": "^17.4.0",
+		"html-loader": "^5.1.0",
+		"html-webpack-plugin": "^5.6.6",
+		"jiti": "^2.6.1",
+		"mini-css-extract-plugin": "^2.10.1",
+		"ts-loader": "^9.5.7",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.57.1",
+		"webpack": "^5.105.4",
+		"webpack-cli": "^7.0.2"
 	}
 }
