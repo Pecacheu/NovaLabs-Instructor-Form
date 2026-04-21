@@ -1,0 +1,24 @@
+{
+	"include": ["./**/*", "../common.d.ts"],
+	"compilerOptions": {
+		"rootDir": "./",
+		"outDir": "../../dist/web",
+		//Module
+		"module": "esnext",
+		"target": "esnext",
+		"lib": ["es2018", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"isolatedModules": true,
+		"allowSyntheticDefaultImports": true,
+		"noUncheckedSideEffectImports": true,
+		"moduleDetection": "force",
+		"moduleResolution": "bundler",
+		//Typecheck
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noPropertyAccessFromIndexSignature": true
+	}
+}

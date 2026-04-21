@@ -1,0 +1,24 @@
+{
+	"include": ["./**/*", "../common.d.ts"],
+	"compilerOptions": {
+		"rootDir": "./",
+		"outDir": "../../dist/srv",
+		"sourceMap": true,
+		//Module
+		"module": "nodenext",
+		"target": "esnext",
+		"lib": ["esnext"],
+		"isolatedModules": true,
+		"allowSyntheticDefaultImports": true,
+		"noUncheckedSideEffectImports": true,
+		"moduleDetection": "force",
+		"moduleResolution": "nodenext",
+		//Typecheck
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noPropertyAccessFromIndexSignature": true
+	}
+}

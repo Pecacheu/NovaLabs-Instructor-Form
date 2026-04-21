@@ -45,6 +45,9 @@ const terserOptions = {
 		inline_script: false,
 		comments: false
 	},
+	mangle: {
+		properties: {regex: /^[_#]/}
+	},
 	compress: {
 		passes: 2,
 		arguments: true,
