@@ -1,5 +1,5 @@
 //Instructor Form, Pecacheu 2026. GNU GPL v3
-const VER = 'v4.0.0';
+const VER = 'v4.0.1';
 
 import fs from 'fs';
 import http from 'http';
@@ -298,7 +298,7 @@ function startServer() {
 				} catch(e) {cli.cliErr(e)}
 				if(!v || !v.valid) {
 					cli.cliErr(`Bad token '${tkn}'`);
-					return setTimeout(() => cli.emit('badTkn'), 1000);
+					if(!Debug) return setTimeout(() => cli.emit('badTkn'), 1000);
 				}
 				cli.uid = crypto.randomUUID();
 			}

@@ -43,7 +43,7 @@ function bgRun() {
 		//Tiles
 		const ctx = BgBox._c, r = BgBox._r;
 		ctx.setTransform(r, 0, 0, r, 0, 0);
-		let w = BgBox._w, h = BgBox._w, x, y = 0, sx = 1, sy = 1;
+		let w = BgBox._w, h = BgBox._h, x, y = 0, sx = 1, sy = 1;
 		const bw = w + BgSize, bh = h + BgSize;
 		for(; y < bh; y += BgSize) for(x = 0; x < bw; x += BgSize) ctx.drawImage(BgBox._i, p + x, p + y);
 		//Gradient Fill
