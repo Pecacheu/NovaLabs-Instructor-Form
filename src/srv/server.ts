@@ -1,5 +1,5 @@
 //Instructor Form, Pecacheu 2026. GNU GPL v3
-const VER = 'v4.0.1';
+const VER = 'v4.1.0';
 
 import fs from 'fs';
 import http from 'http';

@@ -2,8 +2,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "npx webpack --mode production",
-		"build:dev": "npx webpack --mode development",
+		"build": "node build",
+		"build:dev": "node build watch",
 		"start": "node --enable-source-maps dist/srv/server.js",
 		"dev": "npx jiti src/srv/server.ts dev"
 	},
@@ -19,23 +19,17 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@minify-html/node": "^0.18.1",
+		"@pecacheu/esbuild-plugin-html": "^0.10.0",
 		"@stylistic/eslint-plugin": "^5.10.0",
 		"@types/node": "^25.5.0",
 		"@types/nodemailer": "^8.0.0",
-		"css-loader": "^7.1.4",
-		"css-minimizer-webpack-plugin": "^8.0.0",
+		"esbuild": "0.28.0",
 		"eslint": "^10.0.3",
 		"eslint-plugin-import-x": "^4.16.2",
-		"fork-ts-checker-webpack-plugin": "^9.1.0",
 		"globals": "^17.4.0",
-		"html-loader": "^5.1.0",
-		"html-webpack-plugin": "^5.6.6",
-		"jiti": "^2.6.1",
-		"mini-css-extract-plugin": "^2.10.1",
-		"ts-loader": "^9.5.7",
+		"terser": "^5.48.0",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.57.1",
-		"webpack": "^5.105.4",
-		"webpack-cli": "^7.0.2"
+		"typescript-eslint": "^8.57.1"
 	}
 }
