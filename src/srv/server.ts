@@ -152,7 +152,7 @@ async function getEvData(eid: string) {
 		dr = JSON.parse(await httpsReq(ApiUri + AUsr + '/eventregistrations?eventId=' + eid, 'GET', hd));
 	//Parse
 	const rt = d.Details.RegistrationTypes, ev: Partial<EventData> = {
-		name: d.Name,
+		name: d.Name.normalize('NFKD').replace(/[^\x20-\x7E]/g, ''),
 		id: d.Id,
 		link: 'https://portal.nova-labs.org/event-' + d.Id,
 		ven: 'Nova Labs',
