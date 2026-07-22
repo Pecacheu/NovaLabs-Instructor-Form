@@ -8,6 +8,7 @@
 		"module": "nodenext",
 		"target": "esnext",
 		"lib": ["esnext"],
+		"types": ["node"],
 		"isolatedModules": true,
 		"allowSyntheticDefaultImports": true,
 		"noUncheckedSideEffectImports": true,

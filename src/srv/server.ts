@@ -1,5 +1,5 @@
 //Instructor Form, Pecacheu 2026. GNU GPL v3
-const VER = 'v4.1.0';
+const VER = 'v4.1.1';
 
 import fs from 'fs';
 import http from 'http';
@@ -12,7 +12,7 @@ import mail from 'nodemailer';
 import { OTP } from 'otplib';
 import utils from 'raiutils';
 import router from 'raiutils/router';
-import schema, { Entry } from 'raiutils/schema';
+import schema, { type Entry } from 'raiutils/schema';
 import { Server as io, Socket } from 'socket.io';
 import { stripHtml } from 'string-strip-html';
 
@@ -83,6 +83,7 @@ let SrvIp: string,
 	EvLoad = 0;
 
 try {
+	if(!Conf.key || !Conf.cert) throw 1;
 	SrvOpt = {key: fs.readFileSync(Conf.key), cert: fs.readFileSync(Conf.cert)};
 } catch(e) {console.log(C.dim('Warning: Could not load certificates! HTTPS disabled'))}
 
