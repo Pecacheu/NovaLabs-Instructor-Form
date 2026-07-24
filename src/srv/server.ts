@@ -1,5 +1,5 @@
 //Instructor Form, Pecacheu 2026. GNU GPL v3
-const VER = 'v4.1.1';
+const VER = 'v4.1.2';
 
 import fs from 'fs';
 import http from 'http';
@@ -31,7 +31,8 @@ const Port = 8080,
 
 //Filter Patterns
 const pTitle = /^[\w\-:.<>()[\]&*%!', ]+$/, pText = /^[\w+\-()'. ]+$/,
-	pEmail = /^\w+(?:[.+-]\w+)*@\w+(?:[.-]\w+)*\.\w\w+$/, pDate = /^[\w,: ]+$/;
+	pEmail = /^\w+(?:[.+-]\w+)*@\w+(?:[.-]\w+)*\.\w\w+$/, pDate = /^[\w,: ]+$/,
+	tStrip = /[^\x20-\x7E]/g;
 
 //Schemas
 const RHdrFmt: Entry = {t: 'list',
@@ -153,7 +154,7 @@ async function getEvData(eid: string) {
 		dr = JSON.parse(await httpsReq(ApiUri + AUsr + '/eventregistrations?eventId=' + eid, 'GET', hd));
 	//Parse
 	const rt = d.Details.RegistrationTypes, ev: Partial<EventData> = {
-		name: d.Name.normalize('NFKD').replace(/[^\x20-\x7E]/g, ''),
+		name: d.Name.normalize('NFKD').replace(tStrip, ''),
 		id: d.Id,
 		link: 'https://portal.nova-labs.org/event-' + d.Id,
 		ven: 'Nova Labs',
