@@ -327,7 +327,7 @@ function genEvent(ev: EventData | null, e?: string) {
 	utils.setDateTime(FDate, date);
 	//Apply event
 	const nCont = (s: string) => ln.indexOf(s) !== -1;
-	FName.value = ev.hosts[0]!.name;
+	FName.value = ev.hosts[0]?.name || '';
 	FAdc.value = 'p';
 	FCost.set(ev.fRaw);
 	FCount.set(ev.yes);
